@@ -8,11 +8,11 @@
         <version>4.1.1</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
-    <groupId>com.project.task</groupId>
-    <artifactId>MyappPetProject</artifactId>
+    <groupId>com.xperience</groupId>
+    <artifactId>xperience</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>MyappPetProject</name>
-    <description>MyappPetProject</description>
+    <name>Xperience</name>
+    <description>Marketplace for buying and selling experiences</description>
     <url/>
     <licenses>
         <license/>

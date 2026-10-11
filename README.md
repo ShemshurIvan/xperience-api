@@ -1,4 +1,4 @@
-# Experience Marketplace
+# Xperience
 
 A marketplace web app where people **sell experiences** and others **book them**.
 For example, one user lists "Drive a Lamborghini for 30 minutes," and another user
@@ -81,8 +81,8 @@ Product 1 ── * Reservation              an experience has many bookings
 ## Project Structure
 
 ```
-src/main/java/com/project/task/myapppetproject/
-├── MyappPetProjectApplication.java   # entry point
+src/main/java/com/xperience/
+├── XperienceApplication.java         # entry point
 ├── entity/                           # JPA entities (User, Product, Reservation)
 ├── repository/                       # Spring Data repositories       (planned)
 ├── service/                          # business logic                 (planned)
