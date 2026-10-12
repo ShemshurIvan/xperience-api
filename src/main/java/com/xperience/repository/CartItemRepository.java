@@ -26,4 +26,8 @@ public interface CartItemRepository extends JpaRepository<CartItem, Long> {
           """)
     int deleteByProductSlots(@Param("productId") Long productId);
 
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("delete from CartItem c where c.timeSlot.id = :timeSlotId")
+    int deleteByTimeSlotId(@Param("timeSlotId") Long timeSlotId);
+
 }

@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 
 public record ProductResponse(Long id, String name, String description,
                               BigDecimal price, LocalDateTime createdAt,
-                              Long ownerId, Integer maxPeople)
+                              Long ownerId, Integer maxPeople, Integer durationMinutes)
 {
     public static ProductResponse from(Product product) {
         return new ProductResponse(
@@ -17,7 +17,8 @@ public record ProductResponse(Long id, String name, String description,
                 product.getPrice(),
                 product.getCreatedAt(),
                 product.getOwner().getId(),
-                product.getMaxPeople()
+                product.getMaxPeople(),
+                product.getDurationMinutes()
         );
     }
 }

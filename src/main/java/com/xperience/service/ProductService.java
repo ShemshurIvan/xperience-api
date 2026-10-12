@@ -45,6 +45,7 @@ public class ProductService {
         product.setDescription(productRequest.description());
         product.setPrice(productRequest.price());
         product.setMaxPeople(productRequest.maxPeople());
+        product.setDurationMinutes(productRequest.durationMinutes());
         owner.addProduct(product);
 
         return ProductResponse.from(productRepository.saveAndFlush(product));
@@ -58,6 +59,7 @@ public class ProductService {
         product.setDescription(productRequest.description());
         product.setPrice(productRequest.price());
         product.setMaxPeople(productRequest.maxPeople());
+        product.setDurationMinutes(productRequest.durationMinutes());
         return ProductResponse.from(product);
     }
 

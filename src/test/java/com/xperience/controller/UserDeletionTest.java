@@ -134,6 +134,7 @@ class UserDeletionTest {
         product.setName("Drive a Lamborghini");
         product.setPrice(new BigDecimal("200.00"));
         product.setMaxPeople(4);
+        product.setDurationMinutes(60);
         product.setOwner(owner);
         return productRepository.save(product);
     }

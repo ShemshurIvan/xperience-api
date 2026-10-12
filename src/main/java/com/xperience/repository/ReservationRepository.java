@@ -55,4 +55,17 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
           """)
     int deleteByProductSlots(@Param("productId") Long productId);
 
+    boolean existsByTimeSlotId(Long timeSlotId);
+
+    // Cancels every booking on the slot that isn't cancelled yet
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("""
+          update Reservation r
+          set r.status = com.xperience.entity.ReservationStatus.CANCELLED
+          where r.timeSlot.id = :timeSlotId
+            and r.status <> com.xperience.entity.ReservationStatus.CANCELLED
+          """)
+    int cancelActiveByTimeSlotId(@Param("timeSlotId") Long timeSlotId);
+
+
 }

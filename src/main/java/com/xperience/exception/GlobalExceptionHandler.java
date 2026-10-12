@@ -55,4 +55,24 @@ public class GlobalExceptionHandler {
     public ProblemDetail handleActiveBookingOnProductExist(ActiveBookingOnProductExistException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
     }
+
+    @ExceptionHandler(TimeSlotNotFoundException.class)
+    public ProblemDetail handleTimeSlotNotFound(TimeSlotNotFoundException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(BadRequestException.class)
+    public ProblemDetail handleBadRequest(BadRequestException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    @ExceptionHandler(SlotOverlapException.class)
+    public ProblemDetail handleSlotOverlap(SlotOverlapException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(SlotConflictException.class)
+    public ProblemDetail handleSlotConflict(SlotConflictException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+    }
 }

@@ -43,6 +43,11 @@ public class Product {
     @Min(1)
     private Integer maxPeople;
 
+    @Column(name = "duration_minutes", nullable = false)
+    @NotNull
+    @Min(1)
+    private Integer durationMinutes;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "owner_id", nullable = false)
     private User owner;
@@ -86,6 +91,14 @@ public class Product {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public Integer getDurationMinutes() {
+        return durationMinutes;
+    }
+
+    public void setDurationMinutes(Integer durationMinutes) {
+        this.durationMinutes = durationMinutes;
     }
 
     public String getDescription() {
