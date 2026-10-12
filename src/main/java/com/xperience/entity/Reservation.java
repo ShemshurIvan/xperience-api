@@ -35,8 +35,9 @@ public class Reservation {
     @JoinColumn(name = "time_slot_id", nullable = false)
     private TimeSlot timeSlot;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "guest_id", nullable = false)
+    // null when the guest's account has been deleted; the booking itself is kept
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "guest_id")
     private User guest;
 
     public Integer getNumberPeople() {

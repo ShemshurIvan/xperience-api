@@ -2,23 +2,39 @@ package com.xperience.service;
 
 import com.xperience.dto.user.UserRequest;
 import com.xperience.dto.user.UserResponse;
+import com.xperience.entity.ReservationStatus;
 import com.xperience.entity.User;
+import com.xperience.exception.ActiveBookingsExistException;
 import com.xperience.exception.EmailAlreadyExistsException;
 import com.xperience.exception.UserNotFoundException;
+import com.xperience.repository.CartItemRepository;
+import com.xperience.repository.ReservationRepository;
 import com.xperience.repository.UserRepository;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 public class UserService {
 
     private final UserRepository userRepository;
+    private final ReservationRepository reservationRepository;
+    private final CartItemRepository cartItemRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public UserService(UserRepository userRepository,
+                       ReservationRepository reservationRepository,
+                       CartItemRepository cartItemRepository,
+                       PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
+        this.reservationRepository = reservationRepository;
+        this.cartItemRepository = cartItemRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -44,13 +60,7 @@ public class UserService {
             throw new EmailAlreadyExistsException(email);
         }
 
-        return new UserResponse(
-                saved.getId(),
-                saved.getFirstName(),
-                saved.getLastName(),
-                saved.getEmail(),
-                saved.getAge()
-        );
+        return UserResponse.from(saved);
     }
 
     @Transactional
@@ -65,13 +75,7 @@ public class UserService {
         user.setAge(request.age());
         user.setPassword(passwordEncoder.encode(request.password()));
 
-        return new UserResponse(
-                user.getId(),
-                user.getFirstName(),
-                user.getLastName(),
-                user.getEmail(),
-                user.getAge()
-        );
+        return UserResponse.from(user);
     }
 
     @Transactional(readOnly = true)
@@ -80,5 +84,37 @@ public class UserService {
                 .orElseThrow(() -> new UserNotFoundException(id));
 
         return UserResponse.from(user);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<UserResponse> returnAllUsers(Pageable pageable) {
+        return userRepository.findAll(pageable).map(UserResponse::from);
+    }
+
+    /**
+     * Deletes the user together with their experiences, time slots and cart.
+     * Bookings the user made as a guest are kept, without the link to the user.
+     * Refused while other guests have upcoming bookings on this user's experiences.
+     */
+    @Transactional
+    public void deleteUserById(Long id){
+        if(!userRepository.existsById(id)){
+            throw new UserNotFoundException(id);
+        }
+
+        boolean hasActiveBookings = reservationRepository.existsActiveBookingsOnOwnerSlots(
+                id,
+                List.of(ReservationStatus.PENDING, ReservationStatus.CONFIRMED),
+                LocalDateTime.now());
+        if (hasActiveBookings) {
+            throw new ActiveBookingsExistException(id);
+        }
+
+        reservationRepository.detachGuest(id);
+        cartItemRepository.deleteByUserId(id);
+        cartItemRepository.deleteByOwnerSlots(id);
+        reservationRepository.deleteByOwnerSlots(id);
+
+        userRepository.deleteById(id);
     }
 }
