@@ -1,0 +1,11 @@
+target/
+.git/
+.idea/
+.claude/
+*.iml
+.env
+.env.*
+HELP.md
+README.md
+Dockerfile
+docker-compose.yml

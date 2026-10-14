@@ -101,11 +101,11 @@ public class TimeSlotService {
             throw new SlotOverlapException();
         }
 
-        slot.setStatus(slot.getPlacesLeft() > 0 ? StatusSlot.OPEN : StatusSlot.FULL);
-
         slot.setStartTime(newStartTime);
         slot.setEndTime(newEndTime);
         slot.setMaxPeopleInSlot(timeSlotRequest.maxPeopleInSlot());
+
+        slot.setStatus(slot.getPlacesLeft() > 0 ? StatusSlot.OPEN : StatusSlot.FULL);
 
         return TimeSlotResponse.from(slot);
     }

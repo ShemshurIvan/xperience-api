@@ -49,6 +49,7 @@ logs/
 ### Secrets / local config ###
 .env
 .env.*
+!.env.example
 application-local.properties
 application-local.yml
 application-secret.properties
