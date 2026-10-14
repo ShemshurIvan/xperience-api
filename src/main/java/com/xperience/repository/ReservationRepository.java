@@ -2,6 +2,8 @@ package com.xperience.repository;
 
 import com.xperience.entity.Reservation;
 import com.xperience.entity.ReservationStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -67,5 +69,15 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
           """)
     int cancelActiveByTimeSlotId(@Param("timeSlotId") Long timeSlotId);
 
+
+    @Query(value = """
+          select r from Reservation r
+          join fetch r.timeSlot s
+          join fetch s.product
+          where r.guest.id = :guestId
+          order by s.startTime desc
+          """,
+            countQuery = "select count(r) from Reservation r where r.guest.id = :guestId")
+    Page<Reservation> findByGuestId(@Param("guestId") Long guestId, Pageable pageable);
 
 }
