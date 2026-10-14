@@ -75,4 +75,8 @@ public class GlobalExceptionHandler {
     public ProblemDetail handleSlotConflict(SlotConflictException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
     }
+    @ExceptionHandler(CartItemNotFoundException.class)
+    public ProblemDetail handleCartItemNotFound(CartItemNotFoundException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
 }
