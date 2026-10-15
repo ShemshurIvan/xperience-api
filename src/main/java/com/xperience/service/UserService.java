@@ -6,6 +6,7 @@ import com.xperience.entity.ReservationStatus;
 import com.xperience.entity.User;
 import com.xperience.exception.ActiveBookingsExistException;
 import com.xperience.exception.EmailAlreadyExistsException;
+import com.xperience.exception.ForbiddenException;
 import com.xperience.exception.UserNotFoundException;
 import com.xperience.repository.CartItemRepository;
 import com.xperience.repository.ReservationRepository;
@@ -64,14 +65,19 @@ public class UserService {
     }
 
     @Transactional
-    public UserResponse updateUser(UserRequest request) {
-        String email = request.email().trim().toLowerCase();
+    public UserResponse updateUser(Long currentUserId, UserRequest request) {
+        User user = userRepository.findById(currentUserId)
+                .orElseThrow(() -> new UserNotFoundException(currentUserId));
 
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new UserNotFoundException(email));
+        // the email may change, but not to one another account already uses
+        String email = request.email().trim().toLowerCase();
+        if (!email.equals(user.getEmail()) && userRepository.existsByEmail(email)) {
+            throw new EmailAlreadyExistsException(email);
+        }
 
         user.setFirstName(request.firstName().trim());
         user.setLastName(request.lastName().trim());
+        user.setEmail(email);
         user.setAge(request.age());
         user.setPassword(passwordEncoder.encode(request.password()));
 
@@ -97,9 +103,12 @@ public class UserService {
      * Refused while other guests have upcoming bookings on this user's experiences.
      */
     @Transactional
-    public void deleteUserById(Long id){
+    public void deleteUserById(Long currentUserId, Long id){
         if(!userRepository.existsById(id)){
             throw new UserNotFoundException(id);
+        }
+        if (!id.equals(currentUserId)) {
+            throw new ForbiddenException("You can only delete your own account");
         }
 
         boolean hasActiveBookings = reservationRepository.existsActiveBookingsOnOwnerSlots(

@@ -3,6 +3,7 @@ package com.xperience.service;
 import com.xperience.dto.reservation.ReservationResponse;
 import com.xperience.entity.*;
 import com.xperience.exception.BadRequestException;
+import com.xperience.exception.ForbiddenException;
 import com.xperience.exception.ReservationNotFoundException;
 import com.xperience.exception.SlotConflictException;
 import com.xperience.exception.UserNotFoundException;
@@ -76,10 +77,14 @@ public class ReservationService {
     }
 
     @Transactional
-    public ReservationResponse cancelReservation(Long reservationId){
+    public ReservationResponse cancelReservation(Long currentUserId, Long reservationId){
 
         Reservation reservation = reservationRepository.findById(reservationId)
                 .orElseThrow(() -> new ReservationNotFoundException(reservationId));
+
+        if (!isGuest(reservation, currentUserId)) {
+            throw new ForbiddenException("Only the guest who made this reservation can cancel it");
+        }
 
         if(reservation.getStatus() == ReservationStatus.CANCELLED) {
             return ReservationResponse.from(reservation);
@@ -102,11 +107,22 @@ public class ReservationService {
     }
 
     @Transactional(readOnly = true)
-    public ReservationResponse getReservationById(Long reservationId){
+    public ReservationResponse getReservationById(Long currentUserId, Long reservationId){
          Reservation reservation = reservationRepository.findById(reservationId)
                 .orElseThrow(() -> new ReservationNotFoundException(reservationId));
 
+         // the guest who booked, or the host whose experience was booked
+         boolean isHost = reservation.getTimeSlot().getProduct().getOwner().getId().equals(currentUserId);
+         if (!isGuest(reservation, currentUserId) && !isHost) {
+             throw new ForbiddenException("You can only view your own reservations or bookings of your experiences");
+         }
+
          return ReservationResponse.from(reservation);
+    }
+
+    // the guest is null once their account has been deleted
+    private boolean isGuest(Reservation reservation, Long userId) {
+        return reservation.getGuest() != null && reservation.getGuest().getId().equals(userId);
     }
 
     @Transactional(readOnly = true)

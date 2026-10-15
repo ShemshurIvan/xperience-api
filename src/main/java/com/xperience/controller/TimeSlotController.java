@@ -9,6 +9,8 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.data.web.PagedModel;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -23,9 +25,10 @@ public class TimeSlotController {
     }
 
     @PostMapping("/createTimeSlot/{productId}")
-    public ResponseEntity<TimeSlotResponse> createTimeSlot(@PathVariable Long productId,
+    public ResponseEntity<TimeSlotResponse> createTimeSlot(@AuthenticationPrincipal Jwt jwt,
+                                                           @PathVariable Long productId,
                                                            @RequestBody @Valid TimeSlotRequest timeSlotRequest) {
-        TimeSlotResponse response = timeSlotService.createTimeSlot(productId, timeSlotRequest);
+        TimeSlotResponse response = timeSlotService.createTimeSlot(Long.valueOf(jwt.getSubject()), productId, timeSlotRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -38,14 +41,16 @@ public class TimeSlotController {
     }
 
     @PutMapping("/updateTimeSlot/{id}")
-    public ResponseEntity<TimeSlotResponse> updateSlot(@PathVariable Long id, @Valid @RequestBody TimeSlotRequest timeSlotRequest) {
-        TimeSlotResponse timeSlotResponse = timeSlotService.updateTimeSlot(id, timeSlotRequest);
+    public ResponseEntity<TimeSlotResponse> updateSlot(@AuthenticationPrincipal Jwt jwt,
+                                                       @PathVariable Long id,
+                                                       @Valid @RequestBody TimeSlotRequest timeSlotRequest) {
+        TimeSlotResponse timeSlotResponse = timeSlotService.updateTimeSlot(Long.valueOf(jwt.getSubject()), id, timeSlotRequest);
         return ResponseEntity.ok(timeSlotResponse);
     }
 
     @PatchMapping("/cancelTimeSlot/{id}")
-    public TimeSlotResponse cancelTimeSlot(@PathVariable Long id) {
-        return timeSlotService.cancelTimeSlot(id);
+    public TimeSlotResponse cancelTimeSlot(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
+        return timeSlotService.cancelTimeSlot(Long.valueOf(jwt.getSubject()), id);
     }
 
     @GetMapping("/getTimeSlot/{id}")
@@ -55,7 +60,7 @@ public class TimeSlotController {
 
     @DeleteMapping("/deleteTimeSlot/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteTimeSlotById(@PathVariable Long id) {
-        timeSlotService.deleteTimeSlot(id);
+    public void deleteTimeSlotById(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
+        timeSlotService.deleteTimeSlot(Long.valueOf(jwt.getSubject()), id);
     }
 }

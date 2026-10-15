@@ -9,9 +9,11 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.transaction.annotation.Transactional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -35,7 +37,7 @@ class UserReadUpdateTest {
     void getUserById_returnsUserWithoutPassword() throws Exception {
         User user = saveUser("ivan@example.com");
 
-        mockMvc.perform(get("/get/" + user.getId()))
+        mockMvc.perform(get("/get/" + user.getId()).with(loggedInAs(user.getId())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(user.getId()))
                 .andExpect(jsonPath("$.email").value("ivan@example.com"))
@@ -44,17 +46,17 @@ class UserReadUpdateTest {
 
     @Test
     void getUserById_returns404WhenMissing() throws Exception {
-        mockMvc.perform(get("/get/999999"))
+        mockMvc.perform(get("/get/999999").with(loggedInAs(1L)))
                 .andExpect(status().isNotFound());
     }
 
     @Test
     void getAllUsers_returnsRequestedPageWithTotals() throws Exception {
-        saveUser("a@example.com");
+        User a = saveUser("a@example.com");
         saveUser("b@example.com");
         saveUser("c@example.com");
 
-        mockMvc.perform(get("/get").param("page", "0").param("size", "2"))
+        mockMvc.perform(get("/get").param("page", "0").param("size", "2").with(loggedInAs(a.getId())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(2))
                 .andExpect(jsonPath("$.content[0].email").value("a@example.com"))
@@ -79,6 +81,7 @@ class UserReadUpdateTest {
                 """;
 
         mockMvc.perform(put("/updateUser")
+                        .with(loggedInAs(user.getId()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isOk())
@@ -95,21 +98,48 @@ class UserReadUpdateTest {
     }
 
     @Test
-    void updateUser_returns404WhenEmailUnknown() throws Exception {
-        String json = """
-                {
-                  "firstName": "Nobody",
-                  "lastName": "Here",
-                  "email": "nobody@example.com",
-                  "password": "secret123",
-                  "age": 30
-                }
-                """;
+    void updateUser_canChangeEmailToAFreeOne() throws Exception {
+        User user = saveUser("ivan@example.com");
+
+        mockMvc.perform(put("/updateUser")
+                        .with(loggedInAs(user.getId()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(userJson("New.Ivan@Example.com")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value("new.ivan@example.com"));
+    }
+
+    @Test
+    void updateUser_returns409WhenEmailBelongsToAnotherUser() throws Exception {
+        User user = saveUser("ivan@example.com");
+        saveUser("taken@example.com");
+
+        mockMvc.perform(put("/updateUser")
+                        .with(loggedInAs(user.getId()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(userJson("taken@example.com")))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void updateUser_returns401WithoutToken() throws Exception {
+        saveUser("ivan@example.com");
 
         mockMvc.perform(put("/updateUser")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(json))
-                .andExpect(status().isNotFound());
+                        .content(userJson("ivan@example.com")))
+                .andExpect(status().isUnauthorized());
+    }
+
+    private static String userJson(String email) {
+        return """
+                {"firstName": "Ivan", "lastName": "Petrov", "email": "%s", "password": "secret123", "age": 30}
+                """.formatted(email);
+    }
+
+    // a request with a valid token for this user, as if they had logged in
+    private static RequestPostProcessor loggedInAs(Long userId) {
+        return jwt().jwt(token -> token.subject(userId.toString()));
     }
 
     private User saveUser(String email) {

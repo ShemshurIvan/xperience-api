@@ -16,12 +16,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -61,7 +63,7 @@ class UserDeletionTest {
         Reservation booking = saveReservation(hostSlot, guest, ReservationStatus.CONFIRMED);
         saveCartItem(guest, hostSlot);
 
-        mockMvc.perform(delete("/deleteUser/" + guest.getId()))
+        mockMvc.perform(delete("/deleteUser/" + guest.getId()).with(loggedInAs(guest.getId())))
                 .andExpect(status().isNoContent());
         userRepository.flush();
 
@@ -84,7 +86,7 @@ class UserDeletionTest {
         TimeSlot slot = saveSlot(saveProduct(host), LocalDateTime.now().plusDays(5));
         saveReservation(slot, guest, ReservationStatus.PENDING);
 
-        mockMvc.perform(delete("/deleteUser/" + host.getId()))
+        mockMvc.perform(delete("/deleteUser/" + host.getId()).with(loggedInAs(host.getId())))
                 .andExpect(status().isConflict());
 
         assertThat(userRepository.existsById(host.getId())).isTrue();
@@ -102,7 +104,7 @@ class UserDeletionTest {
         saveReservation(pastSlot, guest, ReservationStatus.CONFIRMED);
         saveCartItem(guest, futureSlot);
 
-        mockMvc.perform(delete("/deleteUser/" + host.getId()))
+        mockMvc.perform(delete("/deleteUser/" + host.getId()).with(loggedInAs(host.getId())))
                 .andExpect(status().isNoContent());
         userRepository.flush();
 
@@ -115,8 +117,32 @@ class UserDeletionTest {
 
     @Test
     void deleteUser_returns404WhenUserDoesNotExist() throws Exception {
-        mockMvc.perform(delete("/deleteUser/999999"))
+        mockMvc.perform(delete("/deleteUser/999999").with(loggedInAs(1L)))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deleteUser_returns403WhenDeletingSomeoneElse() throws Exception {
+        User user = saveUser("user@example.com");
+        User other = saveUser("other@example.com");
+
+        mockMvc.perform(delete("/deleteUser/" + other.getId()).with(loggedInAs(user.getId())))
+                .andExpect(status().isForbidden());
+
+        assertThat(userRepository.existsById(other.getId())).isTrue();
+    }
+
+    @Test
+    void deleteUser_returns401WithoutToken() throws Exception {
+        User user = saveUser("user@example.com");
+
+        mockMvc.perform(delete("/deleteUser/" + user.getId()))
+                .andExpect(status().isUnauthorized());
+    }
+
+    // a request with a valid token for this user, as if they had logged in
+    private static RequestPostProcessor loggedInAs(Long userId) {
+        return jwt().jwt(token -> token.subject(userId.toString()));
     }
 
     private User saveUser(String email) {

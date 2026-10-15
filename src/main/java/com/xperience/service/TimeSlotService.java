@@ -33,9 +33,10 @@ public class TimeSlotService {
     }
 
     @Transactional
-    public TimeSlotResponse createTimeSlot(Long productId, TimeSlotRequest timeSlotRequest) {
+    public TimeSlotResponse createTimeSlot(Long currentUserId, Long productId, TimeSlotRequest timeSlotRequest) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new ProductNotFoundException(productId));
+        checkOwner(product, currentUserId);
 
        LocalDateTime startTime = timeSlotRequest.startTime();
        LocalDateTime endTime = startTime.plusMinutes(product.getDurationMinutes());
@@ -71,11 +72,12 @@ public class TimeSlotService {
     }
 
     @Transactional
-    public TimeSlotResponse updateTimeSlot(Long id, TimeSlotRequest timeSlotRequest) {
+    public TimeSlotResponse updateTimeSlot(Long currentUserId, Long id, TimeSlotRequest timeSlotRequest) {
         TimeSlot slot = timeSlotRepository.findById(id)
                 .orElseThrow(() -> new TimeSlotNotFoundException(id));
 
         Product product = slot.getProduct();
+        checkOwner(product, currentUserId);
 
         if(slot.getStatus() == StatusSlot.CANCELLED){
             throw new BadRequestException("A cancelled slot can't be changed");
@@ -111,9 +113,10 @@ public class TimeSlotService {
     }
 
     @Transactional
-    public TimeSlotResponse cancelTimeSlot(Long id) {
+    public TimeSlotResponse cancelTimeSlot(Long currentUserId, Long id) {
         TimeSlot slot = timeSlotRepository.findById(id)
                 .orElseThrow(() -> new TimeSlotNotFoundException(id));
+        checkOwner(slot.getProduct(), currentUserId);
 
         if (slot.getStatus() == StatusSlot.CANCELLED) {
             return TimeSlotResponse.from(slot);
@@ -141,10 +144,11 @@ public class TimeSlotService {
     }
 
     @Transactional
-    public void deleteTimeSlot(Long id) {
-        if(!timeSlotRepository.existsById(id)) {
-            throw new TimeSlotNotFoundException(id);
-        }
+    public void deleteTimeSlot(Long currentUserId, Long id) {
+        TimeSlot existing = timeSlotRepository.findById(id)
+                .orElseThrow(() -> new TimeSlotNotFoundException(id));
+        checkOwner(existing.getProduct(), currentUserId);
+
         if(reservationRepository.existsByTimeSlotId(id)) {
             throw new SlotConflictException("This slot has bookings and can't be deleted. Cancel it instead.");
         }
@@ -153,5 +157,11 @@ public class TimeSlotService {
 
         TimeSlot slot = timeSlotRepository.findById(id).orElseThrow();
         slot.getProduct().removeTimeSlot(slot);
+    }
+
+    private void checkOwner(Product product, Long currentUserId) {
+        if (!product.getOwner().getId().equals(currentUserId)) {
+            throw new ForbiddenException("Only the owner of this experience can manage its time slots");
+        }
     }
 }

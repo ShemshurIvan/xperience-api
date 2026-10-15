@@ -20,6 +20,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -27,6 +28,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -259,7 +261,7 @@ class TimeSlotControllerTest {
         TimeSlot slot = saveSlot(at(10, 0), 4);
         Reservation booking = saveReservation(slot, saveUser("guest@example.com"));
 
-        mockMvc.perform(patch("/cancelTimeSlot/" + slot.getId()))
+        mockMvc.perform(patch("/cancelTimeSlot/" + slot.getId()).with(loggedInAs(host.getId())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CANCELLED"));
 
@@ -269,7 +271,7 @@ class TimeSlotControllerTest {
 
     @Test
     void cancelTimeSlot_returns404WhenMissing() throws Exception {
-        mockMvc.perform(patch("/cancelTimeSlot/999999"))
+        mockMvc.perform(patch("/cancelTimeSlot/999999").with(loggedInAs(host.getId())))
                 .andExpect(status().isNotFound());
     }
 
@@ -280,7 +282,7 @@ class TimeSlotControllerTest {
         TimeSlot slot = saveSlot(at(10, 0), 2);
         saveCartItem(saveUser("guest@example.com"), slot);
 
-        mockMvc.perform(delete("/deleteTimeSlot/" + slot.getId()))
+        mockMvc.perform(delete("/deleteTimeSlot/" + slot.getId()).with(loggedInAs(host.getId())))
                 .andExpect(status().isNoContent());
         timeSlotRepository.flush();
 
@@ -294,7 +296,7 @@ class TimeSlotControllerTest {
         TimeSlot slot = saveSlot(at(10, 0), 2);
         saveReservation(slot, saveUser("guest@example.com"));
 
-        mockMvc.perform(delete("/deleteTimeSlot/" + slot.getId()))
+        mockMvc.perform(delete("/deleteTimeSlot/" + slot.getId()).with(loggedInAs(host.getId())))
                 .andExpect(status().isConflict());
 
         assertThat(timeSlotRepository.existsById(slot.getId())).isTrue();
@@ -302,20 +304,71 @@ class TimeSlotControllerTest {
 
     @Test
     void deleteTimeSlot_returns404WhenMissing() throws Exception {
-        mockMvc.perform(delete("/deleteTimeSlot/999999"))
+        mockMvc.perform(delete("/deleteTimeSlot/999999").with(loggedInAs(host.getId())))
                 .andExpect(status().isNotFound());
+    }
+
+    // ---------- security ----------
+
+    @Test
+    void createTimeSlot_returns403ForSomeoneElsesProduct() throws Exception {
+        User stranger = saveUser("stranger@example.com");
+
+        mockMvc.perform(post("/createTimeSlot/" + product.getId())
+                        .with(loggedInAs(stranger.getId()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(slotJson(at(10, 0), 2)))
+                .andExpect(status().isForbidden());
+
+        assertThat(timeSlotRepository.count()).isZero();
+    }
+
+    @Test
+    void cancelTimeSlot_returns403ForSomeoneElsesSlot() throws Exception {
+        TimeSlot slot = saveSlot(at(10, 0), 2);
+        User stranger = saveUser("stranger@example.com");
+
+        mockMvc.perform(patch("/cancelTimeSlot/" + slot.getId()).with(loggedInAs(stranger.getId())))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void createTimeSlot_returns401WithoutToken() throws Exception {
+        mockMvc.perform(post("/createTimeSlot/" + product.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(slotJson(at(10, 0), 2)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void calendar_isPublic() throws Exception {
+        TimeSlot slot = saveSlot(at(10, 0), 2);
+
+        mockMvc.perform(get("/getTimeSlot/" + slot.getId())).andExpect(status().isOk());
+        mockMvc.perform(get("/listTimeSlots")
+                        .param("productId", product.getId().toString())
+                        .param("from", json(DAY))
+                        .param("to", json(DAY.plusDays(1))))
+                .andExpect(status().isOk());
+    }
+
+    // a request with a valid token for this user, as if they had logged in
+    private static RequestPostProcessor loggedInAs(Long userId) {
+        return jwt().jwt(token -> token.subject(userId.toString()));
     }
 
     // ---------- helpers ----------
 
     private ResultActions createSlot(Long productId, LocalDateTime start, int maxPeople) throws Exception {
         return mockMvc.perform(post("/createTimeSlot/" + productId)
+                .with(loggedInAs(host.getId()))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(slotJson(start, maxPeople)));
     }
 
     private ResultActions updateSlot(Long slotId, LocalDateTime start, int maxPeople) throws Exception {
         return mockMvc.perform(put("/updateTimeSlot/" + slotId)
+                .with(loggedInAs(host.getId()))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(slotJson(start, maxPeople)));
     }

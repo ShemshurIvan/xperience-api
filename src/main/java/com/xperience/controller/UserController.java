@@ -9,6 +9,8 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.data.web.PagedModel;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 @RestController("/api")
@@ -25,9 +27,11 @@ public class UserController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    // updates the logged-in user's own account
     @PutMapping("/updateUser")
-    public ResponseEntity<UserResponse> updateUser(@RequestBody @Valid UserRequest userRequest) {
-        return ResponseEntity.ok(userService.updateUser(userRequest));
+    public ResponseEntity<UserResponse> updateUser(@AuthenticationPrincipal Jwt jwt,
+                                                   @RequestBody @Valid UserRequest userRequest) {
+        return ResponseEntity.ok(userService.updateUser(Long.valueOf(jwt.getSubject()), userRequest));
     }
 
     @GetMapping("/get/{id}")
@@ -41,8 +45,8 @@ public class UserController {
     }
 
     @DeleteMapping("/deleteUser/{id}")
-    public ResponseEntity<Void> deleteUserById(@PathVariable Long id) {
-        userService.deleteUserById(id);
+    public ResponseEntity<Void> deleteUserById(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
+        userService.deleteUserById(Long.valueOf(jwt.getSubject()), id);
         return ResponseEntity.noContent().build();
     }
 }

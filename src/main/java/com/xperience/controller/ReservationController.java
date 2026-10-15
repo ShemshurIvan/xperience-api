@@ -6,6 +6,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.data.web.PagedModel;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -14,28 +16,30 @@ import java.util.List;
 public class ReservationController {
 
     private final ReservationService reservationService;
+
     public ReservationController(ReservationService reservationService) {
         this.reservationService = reservationService;
     }
 
-    @PostMapping("/users/{userId}/checkout")
+    @PostMapping("/me/checkout")
     @ResponseStatus(HttpStatus.CREATED)
-    public List<ReservationResponse> checkout(@PathVariable Long userId){
-        return reservationService.checkout(userId);
+    public List<ReservationResponse> checkout(@AuthenticationPrincipal Jwt jwt){
+        return reservationService.checkout(Long.valueOf(jwt.getSubject()));
     }
 
     @PatchMapping("/cancelReservation/{id}")
-    public ReservationResponse cancelReservation(@PathVariable Long id){
-        return reservationService.cancelReservation(id);
+    public ReservationResponse cancelReservation(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id){
+        return reservationService.cancelReservation(Long.valueOf(jwt.getSubject()), id);
     }
 
     @GetMapping("/getReservation/{id}")
-    public ReservationResponse getReservationById(@PathVariable Long id){
-        return reservationService.getReservationById(id);
+    public ReservationResponse getReservationById(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id){
+        return reservationService.getReservationById(Long.valueOf(jwt.getSubject()), id);
     }
 
-    @GetMapping("/users/{userId}/reservations")
-    public PagedModel<ReservationResponse> getReservationByUserId(@PathVariable Long userId, @PageableDefault(size = 20) Pageable pageable){
-        return new PagedModel<>(reservationService.getMyReservations(userId, pageable));
+    @GetMapping("/me/reservations")
+    public PagedModel<ReservationResponse> getMyReservations(@AuthenticationPrincipal Jwt jwt,
+                                                             @PageableDefault(size = 20) Pageable pageable){
+        return new PagedModel<>(reservationService.getMyReservations(Long.valueOf(jwt.getSubject()), pageable));
     }
 }

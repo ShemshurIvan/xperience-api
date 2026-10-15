@@ -2,7 +2,7 @@
 
 A REST API for a marketplace where people **sell experiences** and others **book them**.
 A host lists something like "Drive a Lamborghini for 30 minutes", opens time slots in a
-calendar, and guests pick a slot and book it for their group.
+calendar, and guests add slots to a cart, check out and get confirmed reservations.
 
 > A portfolio project built to practice Spring Boot, JPA and API design.
 
@@ -10,10 +10,16 @@ calendar, and guests pick a slot and book it for their group.
 
 ## Features
 
-- **Users:** register, update, view and delete accounts. Passwords are hashed with BCrypt and never returned.
+- **Login with JWT:** register, log in and get a signed token; every protected request sends it as
+  `Authorization: Bearer <token>`. Passwords are hashed with BCrypt and never returned.
+- **Users:** update, view and delete your own account.
 - **Experiences (products):** a host creates experiences with a price, maximum group size and duration.
 - **Time slots:** the host opens bookable sessions; the end time is calculated from the experience's duration.
-- **Calendar:** list an experience's slots for any date range, sorted and paged.
+- **Calendar:** list an experience's slots for any date range, sorted and paged. Browsing is public.
+- **Cart and checkout:** add slots to a cart, then book everything in one all-or-nothing transaction.
+- **Reservations:** see your bookings, cancel them, and the places go back to the slot.
+- **Ownership rules:** only the owner can change or delete an experience and its slots; only the guest
+  can cancel a booking. Everyone else gets 403.
 - **Business rules enforced by the API:**
   - slots of the same experience can't overlap
   - a slot can't hold more people than the experience allows
@@ -21,8 +27,9 @@ calendar, and guests pick a slot and book it for their group.
   - cancelling a slot cancels its bookings and removes it from guests' carts
   - users and experiences with upcoming bookings by other guests can't be deleted
   - when a user is deleted, the bookings they made are kept for the record
+  - checkout re-checks every slot (still open, not started, enough places) and books all or nothing
 - **Consistent errors** in the standard `ProblemDetail` format (RFC 9457).
-- **63 automated tests** (unit and integration).
+- **113 automated tests** (unit and integration), including security and rollback tests.
 - **Docker Compose** setup with PostgreSQL.
 
 ---
@@ -34,7 +41,7 @@ calendar, and guests pick a slot and book it for their group.
 | Language    | Java 21                                                 |
 | Framework   | Spring Boot 4.1 (Web MVC, Data JPA, Validation)         |
 | Persistence | Hibernate, H2 (development/tests), PostgreSQL (Docker)  |
-| Security    | Spring Security Crypto (BCrypt)                         |
+| Security    | Spring Security, OAuth2 Resource Server (JWT, HS256), BCrypt |
 | Testing     | JUnit 5, Mockito, MockMvc, AssertJ                      |
 | Build / Run | Maven wrapper, Docker, Docker Compose                   |
 
@@ -64,55 +71,83 @@ TimeSlot 1 ─ * CartItem
 ## API
 
 All endpoints accept and return JSON. Lists are paged with `?page=0&size=20&sort=id`.
+🔒 = requires `Authorization: Bearer <token>` from `/auth/login`. `/me/...` always means the logged-in user.
+
+### Authentication
+
+| Method | Endpoint          | Description                              | Success |
+|--------|-------------------|------------------------------------------|---------|
+| POST   | `/auth/register`  | Create an account                        | 201     |
+| POST   | `/auth/login`     | Log in, get a JWT (valid for 60 minutes) | 200     |
 
 ### Users
 
-| Method | Endpoint             | Description                         | Success |
-|--------|----------------------|-------------------------------------|---------|
-| POST   | `/createUser`        | Register a user                     | 201     |
-| PUT    | `/updateUser`        | Update a user (found by email)      | 200     |
-| GET    | `/get/{id}`          | Get one user                        | 200     |
-| GET    | `/get`               | List users (paged)                  | 200     |
-| DELETE | `/deleteUser/{id}`   | Delete a user                       | 204     |
+| Method | Endpoint             | Description                        | Success |
+|--------|----------------------|------------------------------------|---------|
+| PUT    | `/updateUser` 🔒      | Update your own account            | 200     |
+| GET    | `/get/{id}` 🔒        | Get one user                       | 200     |
+| GET    | `/get` 🔒             | List users (paged)                 | 200     |
+| DELETE | `/deleteUser/{id}` 🔒 | Delete your own account            | 204     |
 
 ### Experiences
 
-| Method | Endpoint                      | Description                    | Success |
-|--------|-------------------------------|--------------------------------|---------|
-| POST   | `/createProduct/{ownerId}`    | Create an experience           | 201     |
-| PUT    | `/updateProduct/{id}`         | Update an experience           | 200     |
-| GET    | `/getProduct/{id}`            | Get one experience             | 200     |
-| GET    | `/products`                   | List experiences (paged)       | 200     |
-| DELETE | `/deleteProduct/{id}`         | Delete an experience           | 204     |
+| Method | Endpoint                   | Description                        | Success |
+|--------|----------------------------|------------------------------------|---------|
+| POST   | `/createProduct` 🔒         | Create an experience (you're the owner) | 201 |
+| PUT    | `/updateProduct/{id}` 🔒    | Update your experience             | 200     |
+| GET    | `/getProduct/{id}`         | Get one experience                 | 200     |
+| GET    | `/products`                | List experiences (paged)           | 200     |
+| DELETE | `/deleteProduct/{id}` 🔒    | Delete your experience             | 204     |
 
 ### Time slots
 
-| Method | Endpoint                                           | Description                         | Success |
-|--------|----------------------------------------------------|-------------------------------------|---------|
-| POST   | `/createTimeSlot/{productId}`                      | Open a slot                         | 201     |
-| GET    | `/listTimeSlots?productId=&from=&to=`              | Calendar for a date range (paged)   | 200     |
-| GET    | `/getTimeSlot/{id}`                                | Get one slot                        | 200     |
-| PUT    | `/updateTimeSlot/{id}`                             | Change start time or capacity       | 200     |
-| PATCH  | `/cancelTimeSlot/{id}`                             | Cancel a slot and its bookings      | 200     |
-| DELETE | `/deleteTimeSlot/{id}`                             | Delete a slot without bookings      | 204     |
+| Method | Endpoint                                  | Description                          | Success |
+|--------|-------------------------------------------|--------------------------------------|---------|
+| POST   | `/createTimeSlot/{productId}` 🔒           | Open a slot on your experience       | 201     |
+| GET    | `/listTimeSlots?productId=&from=&to=`     | Calendar for a date range (paged)    | 200     |
+| GET    | `/getTimeSlot/{id}`                       | Get one slot                         | 200     |
+| PUT    | `/updateTimeSlot/{id}` 🔒                  | Change start time or capacity        | 200     |
+| PATCH  | `/cancelTimeSlot/{id}` 🔒                  | Cancel a slot and its bookings       | 200     |
+| DELETE | `/deleteTimeSlot/{id}` 🔒                  | Delete a slot without bookings       | 204     |
+
+### Cart
+
+| Method | Endpoint                        | Description                                  | Success |
+|--------|---------------------------------|----------------------------------------------|---------|
+| POST   | `/me/cart` 🔒                    | Add a slot (or change its number of people)  | 201     |
+| GET    | `/me/cart` 🔒                    | View the cart with prices and total          | 200     |
+| DELETE | `/me/cart/{timeSlotId}` 🔒       | Remove a slot from the cart                  | 204     |
+| DELETE | `/me/cart` 🔒                    | Empty the cart                               | 204     |
+
+### Reservations
+
+| Method | Endpoint                       | Description                                 | Success |
+|--------|--------------------------------|---------------------------------------------|---------|
+| POST   | `/me/checkout` 🔒               | Book everything in the cart                 | 201     |
+| GET    | `/me/reservations` 🔒           | Your bookings, newest first (paged)         | 200     |
+| GET    | `/getReservation/{id}` 🔒       | One booking (its guest or the host)         | 200     |
+| PATCH  | `/cancelReservation/{id}` 🔒    | Cancel your booking, freeing the places     | 200     |
 
 ### Example
 
 ```bash
-# register a host
-curl -X POST localhost:8080/createUser -H "Content-Type: application/json" \
+# register and log in
+curl -X POST localhost:8080/auth/register -H "Content-Type: application/json" \
   -d '{"firstName":"Ivan","lastName":"Petrov","email":"ivan@example.com","password":"secret123","age":25}'
 
-# create an experience for user 1
-curl -X POST localhost:8080/createProduct/1 -H "Content-Type: application/json" \
-  -d '{"name":"Drive a Lamborghini","price":200,"maxPeople":4,"durationMinutes":30}'
+TOKEN=$(curl -s -X POST localhost:8080/auth/login -H "Content-Type: application/json" \
+  -d '{"email":"ivan@example.com","password":"secret123"}' | sed -E 's/.*"accessToken":"([^"]+)".*/\1/')
 
-# open a slot (the end time is calculated: 10:00 + 30 min)
-curl -X POST localhost:8080/createTimeSlot/1 -H "Content-Type: application/json" \
+# create an experience and open a slot (the end time is calculated: 10:00 + 30 min)
+curl -X POST localhost:8080/createProduct -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"name":"Drive a Lamborghini","price":200,"maxPeople":4,"durationMinutes":30}'
+curl -X POST localhost:8080/createTimeSlot/1 -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"startTime":"2030-06-01T10:00:00","maxPeopleInSlot":2}'
 
-# calendar for that day
-curl "localhost:8080/listTimeSlots?productId=1&from=2030-06-01T00:00&to=2030-06-01T23:59"
+# book it: add to cart, then check out
+curl -X POST localhost:8080/me/cart -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"timeSlotId":1,"numberPeople":2}'
+curl -X POST localhost:8080/me/checkout -H "Authorization: Bearer $TOKEN"
 ```
 
 ### Errors
@@ -120,8 +155,10 @@ curl "localhost:8080/listTimeSlots?productId=1&from=2030-06-01T00:00&to=2030-06-
 | Status | When                                                                 |
 |--------|----------------------------------------------------------------------|
 | 400    | Invalid input; an `errors` map lists each invalid field              |
-| 404    | User, experience or time slot not found                              |
-| 409    | Conflict with existing data: duplicate email, overlapping slot, active bookings |
+| 401    | Missing, invalid or expired token; or wrong email/password at login  |
+| 403    | Logged in, but it belongs to someone else                            |
+| 404    | User, experience, time slot, cart line or reservation not found      |
+| 409    | Conflict: duplicate email, overlapping slot, not enough places, active bookings, booked at the same moment |
 | 500    | Unexpected error (details are logged, never returned)                |
 
 ```json
@@ -145,16 +182,17 @@ curl "localhost:8080/listTimeSlots?productId=1&from=2030-06-01T00:00&to=2030-06-
 Requires Docker Desktop (or another Docker engine).
 
 ```bash
-cp .env.example .env          # then set your own POSTGRES_PASSWORD
+cp .env.example .env          # then set your own POSTGRES_PASSWORD and JWT_SECRET
 docker compose up --build
 ```
 
 The API runs on `http://localhost:8080`, PostgreSQL on `localhost:5432`.
 Stop with `docker compose down` (add `-v` to delete the database data).
 
-### Run locally (H2, no setup)
+### Run locally (H2)
 
-Requires JDK 21+.
+Requires JDK 21+. The app reads `JWT_SECRET` from the `.env` file (create it as above;
+`openssl rand -base64 48` gives a good secret).
 
 ```bash
 ./mvnw spring-boot:run
@@ -168,6 +206,8 @@ The H2 console is at `http://localhost:8080/h2-console`.
 ```bash
 ./mvnw test
 ```
+
+Tests need no setup: they use a test-only JWT secret from `src/test/resources`.
 
 ---
 
@@ -185,6 +225,13 @@ The H2 console is at `http://localhost:8080/h2-console`.
   so they either complete fully or not at all. Reads use `readOnly = true`.
 - **Lazy loading with `open-in-view` disabled**, so no hidden database queries run outside the service layer.
 - **Soft cancel instead of delete.** Cancelled slots and reservations stay in the database as history.
+- **Stateless JWT authentication.** Spring Security's resource server checks each token's HS256 signature and
+  expiry; there are no server sessions. The user's ID comes from the token, never from the URL, and the
+  secret is read from the environment, never committed.
+- **Ownership checks in the service layer** return 403, and login failures use one generic message so
+  nobody can find out which emails are registered.
+- **All-or-nothing checkout,** proven by a test that runs without a test transaction so the real rollback
+  can be checked.
 
 ---
 
@@ -193,7 +240,7 @@ The H2 console is at `http://localhost:8080/h2-console`.
 ```
 src/main/java/com/xperience/
 ├── XperienceApplication.java
-├── config/        # PasswordEncoder bean
+├── config/        # security rules, JWT encoder/decoder, PasswordEncoder
 ├── controller/    # REST endpoints
 ├── dto/           # request/response records with validation and mappers
 ├── entity/        # JPA entities and enums
@@ -202,7 +249,8 @@ src/main/java/com/xperience/
 └── service/       # business logic and transactions
 
 src/test/java/com/xperience/
-├── controller/    # MockMvc integration tests through the full stack
+├── controller/    # MockMvc integration tests through the full stack, incl. security
+├── repository/    # query tests (e.g. proving there's no N+1)
 └── service/       # service tests (Mockito unit tests and integration tests)
 ```
 
@@ -214,9 +262,9 @@ src/test/java/com/xperience/
 - [x] Calendar with date-range queries and paging
 - [x] Validation, consistent error handling and tests
 - [x] Docker Compose with PostgreSQL
-- [ ] Cart and checkout: book slots with capacity checks
-- [ ] Reservation cancellation
-- [ ] Authentication with Spring Security and JWT
+- [x] Cart and checkout: book slots with capacity checks
+- [x] Reservation cancellation
+- [x] Authentication with Spring Security and JWT, with ownership checks
 - [ ] REST-style URLs (`/api/users`, `/api/products/{id}/slots`)
 - [ ] Search experiences by name, price and date
 - [ ] Flyway database migrations

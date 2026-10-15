@@ -15,11 +15,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -72,7 +74,7 @@ class CheckoutRollbackTest {
         TimeSlot fullishSlot = saveSlot(product, LocalDateTime.now().plusDays(4), 4, 3);
         saveCartItem(guest, fullishSlot, 3);
 
-        mockMvc.perform(post("/users/" + guest.getId() + "/checkout"))
+        mockMvc.perform(post("/me/checkout").with(loggedInAs(guest.getId())))
                 .andExpect(status().isConflict());
 
         // the first line's places were given back, nothing was booked, and the cart is untouched
@@ -80,6 +82,11 @@ class CheckoutRollbackTest {
         assertThat(timeSlotRepository.findById(fullishSlot.getId()).orElseThrow().getBookedPeople()).isEqualTo(3);
         assertThat(reservationRepository.count()).isZero();
         assertThat(cartItemRepository.count()).isEqualTo(2);
+    }
+
+    // a request with a valid token for this user, as if they had logged in
+    private static RequestPostProcessor loggedInAs(Long userId) {
+        return jwt().jwt(token -> token.subject(userId.toString()));
     }
 
     private User saveUser(String email) {

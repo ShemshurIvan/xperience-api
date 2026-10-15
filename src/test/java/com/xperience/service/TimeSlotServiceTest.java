@@ -58,6 +58,7 @@ class TimeSlotServiceTest {
     private CartItemRepository cartItemRepository;
 
     private Product product;
+    private Long hostId;   // the product owner, who is allowed to manage its slots
 
     @BeforeEach
     void setUp() {
@@ -68,6 +69,7 @@ class TimeSlotServiceTest {
         host.setEmail("host@example.com");
         host.setPassword("hashed-password");
         userRepository.save(host);
+        hostId = host.getId();
 
         product = new Product();
         product.setName("Drive a Lamborghini");
@@ -82,7 +84,7 @@ class TimeSlotServiceTest {
 
     @Test
     void createTimeSlot_calculatesEndTimeFromProductDuration() {
-        TimeSlotResponse response = timeSlotService.createTimeSlot(
+        TimeSlotResponse response = timeSlotService.createTimeSlot(hostId, 
                 product.getId(), new TimeSlotRequest(at(10, 0), 3));
 
         assertThat(response.id()).isNotNull();
@@ -96,13 +98,13 @@ class TimeSlotServiceTest {
 
     @Test
     void createTimeSlot_throwsWhenProductMissing() {
-        assertThatThrownBy(() -> timeSlotService.createTimeSlot(999_999L, new TimeSlotRequest(at(10, 0), 2)))
+        assertThatThrownBy(() -> timeSlotService.createTimeSlot(hostId, 999_999L, new TimeSlotRequest(at(10, 0), 2)))
                 .isInstanceOf(ProductNotFoundException.class);
     }
 
     @Test
     void createTimeSlot_throwsWhenMorePeopleThanProductAllows() {
-        assertThatThrownBy(() -> timeSlotService.createTimeSlot(product.getId(), new TimeSlotRequest(at(10, 0), 5)))
+        assertThatThrownBy(() -> timeSlotService.createTimeSlot(hostId, product.getId(), new TimeSlotRequest(at(10, 0), 5)))
                 .isInstanceOf(BadRequestException.class);
 
         assertThat(timeSlotRepository.count()).isZero();
@@ -110,31 +112,31 @@ class TimeSlotServiceTest {
 
     @Test
     void createTimeSlot_throwsWhenOverlappingAnotherSlot() {
-        timeSlotService.createTimeSlot(product.getId(), new TimeSlotRequest(at(10, 0), 2));   // 10:00–11:00
+        timeSlotService.createTimeSlot(hostId, product.getId(), new TimeSlotRequest(at(10, 0), 2));   // 10:00–11:00
 
-        assertThatThrownBy(() -> timeSlotService.createTimeSlot(product.getId(), new TimeSlotRequest(at(10, 30), 2)))
+        assertThatThrownBy(() -> timeSlotService.createTimeSlot(hostId, product.getId(), new TimeSlotRequest(at(10, 30), 2)))
                 .isInstanceOf(SlotOverlapException.class);
-        assertThatThrownBy(() -> timeSlotService.createTimeSlot(product.getId(), new TimeSlotRequest(at(9, 30), 2)))
+        assertThatThrownBy(() -> timeSlotService.createTimeSlot(hostId, product.getId(), new TimeSlotRequest(at(9, 30), 2)))
                 .isInstanceOf(SlotOverlapException.class);
     }
 
     @Test
     void createTimeSlot_allowsBackToBackSlots() {
-        timeSlotService.createTimeSlot(product.getId(), new TimeSlotRequest(at(10, 0), 2));   // 10:00–11:00
+        timeSlotService.createTimeSlot(hostId, product.getId(), new TimeSlotRequest(at(10, 0), 2));   // 10:00–11:00
 
-        timeSlotService.createTimeSlot(product.getId(), new TimeSlotRequest(at(11, 0), 2));   // 11:00–12:00
-        timeSlotService.createTimeSlot(product.getId(), new TimeSlotRequest(at(9, 0), 2));    // 09:00–10:00
+        timeSlotService.createTimeSlot(hostId, product.getId(), new TimeSlotRequest(at(11, 0), 2));   // 11:00–12:00
+        timeSlotService.createTimeSlot(hostId, product.getId(), new TimeSlotRequest(at(9, 0), 2));    // 09:00–10:00
 
         assertThat(timeSlotRepository.count()).isEqualTo(3);
     }
 
     @Test
     void createTimeSlot_ignoresCancelledSlotsWhenCheckingOverlap() {
-        TimeSlotResponse first = timeSlotService.createTimeSlot(product.getId(), new TimeSlotRequest(at(10, 0), 2));
+        TimeSlotResponse first = timeSlotService.createTimeSlot(hostId, product.getId(), new TimeSlotRequest(at(10, 0), 2));
         TimeSlot cancelled = timeSlotRepository.findById(first.id()).orElseThrow();
         cancelled.setStatus(StatusSlot.CANCELLED);
 
-        TimeSlotResponse replacement = timeSlotService.createTimeSlot(product.getId(), new TimeSlotRequest(at(10, 30), 2));
+        TimeSlotResponse replacement = timeSlotService.createTimeSlot(hostId, product.getId(), new TimeSlotRequest(at(10, 30), 2));
 
         assertThat(replacement.id()).isNotNull();
     }
@@ -143,9 +145,9 @@ class TimeSlotServiceTest {
 
     @Test
     void calendarQuery_returnsOnlySlotsInRangeSortedByStartTime() {
-        timeSlotService.createTimeSlot(product.getId(), new TimeSlotRequest(at(14, 0), 2));
-        timeSlotService.createTimeSlot(product.getId(), new TimeSlotRequest(at(10, 0), 2));
-        timeSlotService.createTimeSlot(product.getId(), new TimeSlotRequest(DAY.plusDays(5).withHour(10), 2)); // out of range
+        timeSlotService.createTimeSlot(hostId, product.getId(), new TimeSlotRequest(at(14, 0), 2));
+        timeSlotService.createTimeSlot(hostId, product.getId(), new TimeSlotRequest(at(10, 0), 2));
+        timeSlotService.createTimeSlot(hostId, product.getId(), new TimeSlotRequest(DAY.plusDays(5).withHour(10), 2)); // out of range
 
         Page<TimeSlot> page = timeSlotRepository.findByProductIdAndStartTimeBetweenOrderByStartTime(
                 product.getId(), DAY, DAY.plusDays(1), PageRequest.of(0, 50));
@@ -159,7 +161,7 @@ class TimeSlotServiceTest {
 
     @Test
     void cancelTimeSlot_cancelsSlotAndItsBookingsAndRemovesItFromCarts() {
-        TimeSlotResponse created = timeSlotService.createTimeSlot(product.getId(), new TimeSlotRequest(at(10, 0), 4));
+        TimeSlotResponse created = timeSlotService.createTimeSlot(hostId, product.getId(), new TimeSlotRequest(at(10, 0), 4));
         TimeSlot slot = timeSlotRepository.findById(created.id()).orElseThrow();
         slot.setBookedPeople(3);
         User guest = saveGuest();
@@ -167,7 +169,7 @@ class TimeSlotServiceTest {
         Reservation pending = saveReservation(slot, guest, ReservationStatus.PENDING);
         saveCartItem(guest, slot);
 
-        TimeSlotResponse response = timeSlotService.cancelTimeSlot(slot.getId());
+        TimeSlotResponse response = timeSlotService.cancelTimeSlot(hostId, slot.getId());
 
         assertThat(response.status()).isEqualTo(StatusSlot.CANCELLED);
         assertThat(response.placesLeft()).isEqualTo(4);
@@ -181,10 +183,10 @@ class TimeSlotServiceTest {
 
     @Test
     void cancelTimeSlot_isHarmlessWhenAlreadyCancelled() {
-        TimeSlotResponse created = timeSlotService.createTimeSlot(product.getId(), new TimeSlotRequest(at(10, 0), 2));
-        timeSlotService.cancelTimeSlot(created.id());
+        TimeSlotResponse created = timeSlotService.createTimeSlot(hostId, product.getId(), new TimeSlotRequest(at(10, 0), 2));
+        timeSlotService.cancelTimeSlot(hostId, created.id());
 
-        TimeSlotResponse again = timeSlotService.cancelTimeSlot(created.id());
+        TimeSlotResponse again = timeSlotService.cancelTimeSlot(hostId, created.id());
 
         assertThat(again.status()).isEqualTo(StatusSlot.CANCELLED);
     }
@@ -198,13 +200,13 @@ class TimeSlotServiceTest {
         product.addTimeSlot(past);
         timeSlotRepository.save(past);
 
-        assertThatThrownBy(() -> timeSlotService.cancelTimeSlot(past.getId()))
+        assertThatThrownBy(() -> timeSlotService.cancelTimeSlot(hostId, past.getId()))
                 .isInstanceOf(BadRequestException.class);
     }
 
     @Test
     void cancelTimeSlot_throwsWhenSlotMissing() {
-        assertThatThrownBy(() -> timeSlotService.cancelTimeSlot(999_999L))
+        assertThatThrownBy(() -> timeSlotService.cancelTimeSlot(hostId, 999_999L))
                 .isInstanceOf(TimeSlotNotFoundException.class);
     }
 

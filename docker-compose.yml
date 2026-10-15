@@ -27,6 +27,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-xperience}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-xperience}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the .env file}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in the .env file}
       # Hibernate creates/updates the tables until Flyway migrations are added
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_H2_CONSOLE_ENABLED: "false"

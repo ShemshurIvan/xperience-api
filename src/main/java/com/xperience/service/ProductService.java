@@ -6,6 +6,7 @@ import com.xperience.entity.Product;
 import com.xperience.entity.ReservationStatus;
 import com.xperience.entity.User;
 import com.xperience.exception.ActiveBookingOnProductExistException;
+import com.xperience.exception.ForbiddenException;
 import com.xperience.exception.ProductNotFoundException;
 import com.xperience.exception.UserNotFoundException;
 import com.xperience.repository.CartItemRepository;
@@ -52,9 +53,11 @@ public class ProductService {
     }
 
     @Transactional
-    public ProductResponse updateProduct(Long id,ProductRequest productRequest) {
+    public ProductResponse updateProduct(Long currentUserId, Long id, ProductRequest productRequest) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException(id));
+        checkOwner(product, currentUserId);
+
         product.setName(productRequest.name().trim());
         product.setDescription(productRequest.description());
         product.setPrice(productRequest.price());
@@ -76,9 +79,10 @@ public class ProductService {
     }
 
     @Transactional
-    public void deleteProductById(Long id) {
+    public void deleteProductById(Long currentUserId, Long id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException(id));
+        checkOwner(product, currentUserId);
 
         boolean hasActiveBooking = reservationRepository.existsActiveBookingsOnProduct(id,
                 List.of(ReservationStatus.PENDING, ReservationStatus.CONFIRMED),
@@ -90,5 +94,11 @@ public class ProductService {
         cartItemRepository.deleteByProductSlots(id);
         reservationRepository.deleteByProductSlots(id);
         productRepository.deleteById(id);
+    }
+
+    private void checkOwner(Product product, Long currentUserId) {
+        if (!product.getOwner().getId().equals(currentUserId)) {
+            throw new ForbiddenException("Only the owner can change this experience");
+        }
     }
 }
