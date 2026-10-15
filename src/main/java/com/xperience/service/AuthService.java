@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 
 @Service
 public class AuthService {
@@ -49,6 +50,7 @@ public class AuthService {
                 .issuer("xperience")
                 .subject(user.getId().toString())
                 .claim("email", user.getEmail())
+                .claim("roles", List.of(user.getRole().name()))
                 .issuedAt(now)
                 .expiresAt(now.plus(tokenLifetime))
                 .build();

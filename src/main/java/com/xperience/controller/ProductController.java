@@ -9,6 +9,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.data.web.PagedModel;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -22,7 +23,6 @@ public class ProductController {
         this.productService = productService;
     }
 
-    // the logged-in user becomes the owner
     @PostMapping("/createProduct")
     public ResponseEntity<ProductResponse> createProduct(@AuthenticationPrincipal Jwt jwt,
                                                          @RequestBody @Valid ProductRequest productRequest) {
@@ -49,8 +49,14 @@ public class ProductController {
     }
 
     @DeleteMapping("/deleteProduct/{id}")
-    public ResponseEntity<Void> deleteProduct(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
-        productService.deleteProductById(Long.valueOf(jwt.getSubject()), id);
+    public ResponseEntity<Void> deleteProduct(@AuthenticationPrincipal Jwt jwt, Authentication authentication,
+                                              @PathVariable Long id) {
+        productService.deleteProductById(Long.valueOf(jwt.getSubject()), isAdmin(authentication), id);
         return ResponseEntity.noContent().build();
+    }
+
+    private static boolean isAdmin(Authentication authentication) {
+        return authentication.getAuthorities().stream()
+                .anyMatch(authority -> "ROLE_ADMIN".equals(authority.getAuthority()));
     }
 }

@@ -17,6 +17,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -279,9 +280,10 @@ class ProductControllerTest {
         mockMvc.perform(get("/getProduct/" + product.getId())).andExpect(status().isOk());
     }
 
-    // a request with a valid token for this user, as if they had logged in
+    // a valid SELLER token for this user, as if they had logged in (everyone here acts as a seller)
     private static RequestPostProcessor loggedInAs(Long userId) {
-        return jwt().jwt(token -> token.subject(userId.toString()));
+        return jwt().jwt(token -> token.subject(userId.toString()))
+                .authorities(new SimpleGrantedAuthority("ROLE_SELLER"));
     }
 
     // ---------- helpers ----------

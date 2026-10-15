@@ -17,7 +17,7 @@ import java.nio.charset.StandardCharsets;
 @Configuration
 public class JwtConfig {
 
-    // The same key signs tokens (encoder) and checks their signature (decoder)
+
     @Bean
     public SecretKey jwtSecretKey(@Value("${app.jwt.secret}") String secret) {
         byte[] bytes = secret.getBytes(StandardCharsets.UTF_8);

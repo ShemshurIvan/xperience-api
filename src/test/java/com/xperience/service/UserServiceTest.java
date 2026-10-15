@@ -34,7 +34,7 @@ class UserServiceTest {
     private UserService userService;
 
     private final UserRequest request =
-            new UserRequest("  Ivan ", " Petrov ", "  Ivan@Example.COM ", "secret123", 25);
+            new UserRequest("  Ivan ", " Petrov ", "  Ivan@Example.COM ", "secret123", 25, null);
 
     @Test
     void createUser_savesNormalizedUserWithHashedPassword() {

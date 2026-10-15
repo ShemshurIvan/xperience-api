@@ -1,8 +1,10 @@
 package com.xperience.service;
 
+import com.xperience.dto.user.AccountType;
 import com.xperience.dto.user.UserRequest;
 import com.xperience.dto.user.UserResponse;
 import com.xperience.entity.ReservationStatus;
+import com.xperience.entity.Role;
 import com.xperience.entity.User;
 import com.xperience.exception.ActiveBookingsExistException;
 import com.xperience.exception.EmailAlreadyExistsException;
@@ -11,6 +13,7 @@ import com.xperience.exception.UserNotFoundException;
 import com.xperience.repository.CartItemRepository;
 import com.xperience.repository.ReservationRepository;
 import com.xperience.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -28,15 +31,18 @@ public class UserService {
     private final ReservationRepository reservationRepository;
     private final CartItemRepository cartItemRepository;
     private final PasswordEncoder passwordEncoder;
+    private final String adminEmail;
 
     public UserService(UserRepository userRepository,
                        ReservationRepository reservationRepository,
                        CartItemRepository cartItemRepository,
-                       PasswordEncoder passwordEncoder) {
+                       PasswordEncoder passwordEncoder,
+                       @Value("${app.admin-email:}") String adminEmail) {
         this.userRepository = userRepository;
         this.reservationRepository = reservationRepository;
         this.cartItemRepository = cartItemRepository;
         this.passwordEncoder = passwordEncoder;
+        this.adminEmail = adminEmail == null ? "" : adminEmail.trim().toLowerCase();
     }
 
     @Transactional
@@ -53,6 +59,7 @@ public class UserService {
         user.setEmail(email);
         user.setAge(request.age());
         user.setPassword(passwordEncoder.encode(request.password()));
+        user.setRole(roleForNewUser(email, request.accountType()));
 
         User saved;
         try {
@@ -69,7 +76,6 @@ public class UserService {
         User user = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new UserNotFoundException(currentUserId));
 
-        // the email may change, but not to one another account already uses
         String email = request.email().trim().toLowerCase();
         if (!email.equals(user.getEmail()) && userRepository.existsByEmail(email)) {
             throw new EmailAlreadyExistsException(email);
@@ -103,11 +109,11 @@ public class UserService {
      * Refused while other guests have upcoming bookings on this user's experiences.
      */
     @Transactional
-    public void deleteUserById(Long currentUserId, Long id){
+    public void deleteUserById(Long currentUserId, boolean isAdmin, Long id){
         if(!userRepository.existsById(id)){
             throw new UserNotFoundException(id);
         }
-        if (!id.equals(currentUserId)) {
+        if (!id.equals(currentUserId) && !isAdmin) {
             throw new ForbiddenException("You can only delete your own account");
         }
 
@@ -125,5 +131,12 @@ public class UserService {
         reservationRepository.deleteByOwnerSlots(id);
 
         userRepository.deleteById(id);
+    }
+
+    private Role roleForNewUser(String email, AccountType accountType) {
+        if (!adminEmail.isEmpty() && adminEmail.equals(email)) {
+            return Role.ADMIN;
+        }
+        return accountType == AccountType.SELLER ? Role.SELLER : Role.USER;
     }
 }

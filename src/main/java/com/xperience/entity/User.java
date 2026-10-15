@@ -34,6 +34,10 @@ public class User {
     @NotBlank
     private String email;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role", nullable = false)
+    private Role role = Role.USER;
+
     @Column(name = "password")
     @NotBlank
     private String password;
@@ -89,6 +93,14 @@ public class User {
 
     public Long getId() {
         return id;
+    }
+
+    public Role getRole() {
+        return role;
+    }
+
+    public void setRole(Role role) {
+        this.role = role;
     }
 
     public Integer getAge() {

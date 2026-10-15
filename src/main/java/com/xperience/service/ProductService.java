@@ -79,10 +79,12 @@ public class ProductService {
     }
 
     @Transactional
-    public void deleteProductById(Long currentUserId, Long id) {
+    public void deleteProductById(Long currentUserId, boolean isAdmin, Long id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException(id));
-        checkOwner(product, currentUserId);
+        if (!isAdmin) {
+            checkOwner(product, currentUserId);
+        }
 
         boolean hasActiveBooking = reservationRepository.existsActiveBookingsOnProduct(id,
                 List.of(ReservationStatus.PENDING, ReservationStatus.CONFIRMED),

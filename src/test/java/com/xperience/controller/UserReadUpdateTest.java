@@ -9,6 +9,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -56,7 +57,9 @@ class UserReadUpdateTest {
         saveUser("b@example.com");
         saveUser("c@example.com");
 
-        mockMvc.perform(get("/get").param("page", "0").param("size", "2").with(loggedInAs(a.getId())))
+        mockMvc.perform(get("/get").param("page", "0").param("size", "2")
+                        .with(jwt().jwt(token -> token.subject(a.getId().toString()))
+                                .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(2))
                 .andExpect(jsonPath("$.content[0].email").value("a@example.com"))
