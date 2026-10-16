@@ -1,7 +1,9 @@
 package com.xperience.controller;
 
+import com.xperience.dto.reservation.ReservationRequest;
 import com.xperience.dto.reservation.ReservationResponse;
 import com.xperience.service.ReservationService;
+import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.data.web.PagedModel;
@@ -41,5 +43,11 @@ public class ReservationController {
     public PagedModel<ReservationResponse> getMyReservations(@AuthenticationPrincipal Jwt jwt,
                                                              @PageableDefault(size = 20) Pageable pageable){
         return new PagedModel<>(reservationService.getMyReservations(Long.valueOf(jwt.getSubject()), pageable));
+    }
+    @PostMapping("/me/reserveNow")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ReservationResponse reserveNow(@AuthenticationPrincipal Jwt jwt,
+                                          @Valid @RequestBody ReservationRequest reservationRequest){
+        return reservationService.bookNow(Long.valueOf(jwt.getSubject()), reservationRequest);
     }
 }

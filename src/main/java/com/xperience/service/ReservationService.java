@@ -1,14 +1,12 @@
 package com.xperience.service;
 
+import com.xperience.dto.reservation.ReservationRequest;
 import com.xperience.dto.reservation.ReservationResponse;
 import com.xperience.entity.*;
-import com.xperience.exception.BadRequestException;
-import com.xperience.exception.ForbiddenException;
-import com.xperience.exception.ReservationNotFoundException;
-import com.xperience.exception.SlotConflictException;
-import com.xperience.exception.UserNotFoundException;
+import com.xperience.exception.*;
 import com.xperience.repository.CartItemRepository;
 import com.xperience.repository.ReservationRepository;
+import com.xperience.repository.TimeSlotRepository;
 import com.xperience.repository.UserRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -26,11 +24,13 @@ public class ReservationService {
     private final ReservationRepository reservationRepository;
     private final CartItemRepository cartItemRepository;
     private final UserRepository userRepository;
+    private final TimeSlotRepository timeSlotRepository;
 
-    public ReservationService(ReservationRepository reservationRepository, CartItemRepository cartItemRepository, UserRepository userRepository) {
+    public ReservationService(ReservationRepository reservationRepository, CartItemRepository cartItemRepository, UserRepository userRepository, TimeSlotRepository timeSlotRepository) {
         this.reservationRepository = reservationRepository;
         this.cartItemRepository = cartItemRepository;
         this.userRepository = userRepository;
+        this.timeSlotRepository = timeSlotRepository;
     }
 
     @Transactional
@@ -43,33 +43,7 @@ public class ReservationService {
         LocalDateTime now = LocalDateTime.now();
         List<ReservationResponse> reservations = new ArrayList<>();
         for (CartItem item : cart) {
-            TimeSlot slot = item.getTimeSlot();
-            String what = slot.getProduct().getName() + " at " + slot.getStartTime();
-
-            if (slot.getStatus() != StatusSlot.OPEN) {
-                throw new SlotConflictException(what + " is no longer available");
-            }
-            if (!slot.getStartTime().isAfter(now)) {
-                throw new SlotConflictException(what + " has already started");
-            }
-            if (item.getNumberPeople() > slot.getPlacesLeft()) {
-                throw new SlotConflictException(what + " has only " + slot.getPlacesLeft() + " places left");
-            }
-
-            slot.setBookedPeople(slot.getBookedPeople() + item.getNumberPeople());
-            if(slot.getPlacesLeft() == 0){
-                slot.setStatus(StatusSlot.FULL);
-            }
-
-            Reservation reservation = new Reservation();
-            reservation.setTimeSlot(slot);
-            reservation.setGuest(item.getUser());
-            reservation.setNumberPeople(item.getNumberPeople());
-            reservation.setPricePaid(slot.getProduct().getPrice()
-                    .multiply(BigDecimal.valueOf(item.getNumberPeople())));
-            reservation.setStatus(ReservationStatus.CONFIRMED);
-
-            reservations.add(ReservationResponse.from(reservationRepository.save(reservation)));
+            reservations.add(reserve(item.getUser(), item.getTimeSlot(), item.getNumberPeople(), now));
         }
 
         cartItemRepository.deleteByUserId(userId);
@@ -111,7 +85,6 @@ public class ReservationService {
          Reservation reservation = reservationRepository.findById(reservationId)
                 .orElseThrow(() -> new ReservationNotFoundException(reservationId));
 
-         // the guest who booked, or the host whose experience was booked
          boolean isHost = reservation.getTimeSlot().getProduct().getOwner().getId().equals(currentUserId);
          if (!isGuest(reservation, currentUserId) && !isHost) {
              throw new ForbiddenException("You can only view your own reservations or bookings of your experiences");
@@ -120,7 +93,6 @@ public class ReservationService {
          return ReservationResponse.from(reservation);
     }
 
-    // the guest is null once their account has been deleted
     private boolean isGuest(Reservation reservation, Long userId) {
         return reservation.getGuest() != null && reservation.getGuest().getId().equals(userId);
     }
@@ -133,5 +105,47 @@ public class ReservationService {
 
         return reservationRepository.findByGuestId(userId, pageable)
                .map(ReservationResponse::from);
+    }
+
+    private ReservationResponse reserve(User guest, TimeSlot timeSlot, int numberPeople, LocalDateTime now) {
+        String what = timeSlot.getProduct().getName() + " at " + timeSlot.getStartTime();
+
+        if(timeSlot.getStatus() != StatusSlot.OPEN){
+            throw new SlotConflictException(what + " is no longer available");
+        }
+        if(!timeSlot.getStartTime().isAfter(now)){
+            throw new SlotConflictException(what + " has already started");
+        }
+        if(numberPeople > timeSlot.getPlacesLeft()){
+            throw new SlotConflictException(what + " has only " + timeSlot.getPlacesLeft() + " places left");
+        }
+        timeSlot.setBookedPeople(timeSlot.getBookedPeople() + numberPeople);
+        if(timeSlot.getPlacesLeft() == 0){
+            timeSlot.setStatus(StatusSlot.FULL);
+        }
+
+        Reservation reservation = new Reservation();
+        reservation.setGuest(guest);
+        reservation.setTimeSlot(timeSlot);
+        reservation.setNumberPeople(numberPeople);
+        reservation.setPricePaid(timeSlot.getProduct().getPrice().multiply(BigDecimal.valueOf(numberPeople)));
+        reservation.setStatus(ReservationStatus.CONFIRMED);
+
+        return ReservationResponse.from(reservationRepository.save(reservation));
+    }
+    @Transactional
+    public ReservationResponse bookNow(Long userId, ReservationRequest reservationRequest){
+        User guest = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException(userId));
+
+        TimeSlot timeSlot = timeSlotRepository.findById(reservationRequest.timeSlotId())
+                .orElseThrow(() -> new TimeSlotNotFoundException(reservationRequest.timeSlotId()));
+
+        ReservationResponse reservation = reserve(guest, timeSlot, reservationRequest.numberPeople(), LocalDateTime.now());
+
+        cartItemRepository.findByUserIdAndTimeSlotId(userId, timeSlot.getId())
+                .ifPresent(cartItemRepository::delete);
+
+        return reservation;
     }
 }

@@ -10,7 +10,17 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-// Admins can't be created through the API. On startup, the account with ADMIN_EMAIL (if it exists) becomes ADMIN.
+/**
+ * Promotes the account whose email matches {@code app.admin-email} (the {@code ADMIN_EMAIL}
+ * environment variable) to {@link Role#ADMIN} when the application starts.
+ *
+ * <p>Admin accounts can't be created through the API: registration only accepts
+ * {@code USER} or {@code SELLER}. This runner covers accounts that already existed before
+ * the admin email was set; new registrations with that email become admins in
+ * {@link com.xperience.service.UserService}.
+ *
+ * <p>Does nothing if no admin email is configured or no account uses it.
+ */
 @Component
 public class AdminAccountInitializer implements ApplicationRunner {
 
