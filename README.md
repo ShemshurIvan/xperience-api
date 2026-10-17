@@ -1,10 +1,15 @@
 # Xperience
 
+![CI](https://github.com/ShemshurIvan/xperience-api/actions/workflows/ci.yml/badge.svg)
+
 A REST API for a marketplace where people **sell experiences** and others **book them**.
 A seller lists something like "Drive a Lamborghini for 30 minutes" and opens time slots in a calendar;
-buyers add slots to a cart, check out and get confirmed reservations.
+buyers pick a slot, book it straight away or through a cart, and get a confirmed reservation.
 
 > A portfolio project built with Spring Boot to practice API design, JPA, transactions and security.
+
+**Try it in the browser:** start the app and open the interactive API docs at
+[`http://localhost:8080/swagger-ui.html`](http://localhost:8080/swagger-ui.html).
 
 ---
 
@@ -13,40 +18,45 @@ buyers add slots to a cart, check out and get confirmed reservations.
 - **Accounts and login:** register as a buyer or a seller, log in and get a signed **JWT**. Passwords are
   hashed with BCrypt and never returned.
 - **Three roles:**
-  - **User** (buyer): browse, add slots to a cart, check out, see and cancel their own bookings.
+  - **User** (buyer): browse, book, see and cancel their own bookings.
   - **Seller:** everything a user can, plus create experiences and manage their own experiences and time slots.
   - **Admin:** everything, plus list all users and remove experiences or accounts for moderation.
 - **Experiences:** a seller sets a price, a maximum group size and a duration.
 - **Time slots:** bookable sessions; the end time is calculated from the experience's duration.
 - **Calendar:** an experience's slots for any date range, sorted and paged. Browsing needs no account.
-- **Cart and checkout:** checkout books every cart line in one all-or-nothing transaction.
+- **Two ways to book:**
+  - **Book now:** reserve one slot immediately.
+  - **Cart and checkout:** collect several slots, then book them all in one all-or-nothing transaction.
 - **Reservations:** see your bookings and cancel them; the places go back to the slot.
 - **Business rules enforced by the API:**
   - only an experience's own seller can change it or its time slots; admins can delete but not edit
   - only the guest who made a booking can cancel it
   - slots of the same experience can't overlap, and can't hold more people than the experience allows
   - a booked slot can't be moved, and its capacity can't drop below the people already booked
-  - checkout re-checks every slot (still open, not started, enough places) and books all or nothing
+  - every booking checks that the slot is still open, hasn't started and has enough places
   - two guests can't take the last place at the same moment (optimistic locking)
   - cancelling a slot cancels its bookings and removes it from guests' carts
   - users and experiences with upcoming bookings by other guests can't be deleted
   - when a user deletes their account, the bookings they made are kept for the record
+- **Interactive API docs** with Swagger UI, including an Authorize button for the JWT.
 - **Consistent errors** in the standard `ProblemDetail` format (RFC 9457).
-- **113 automated tests:** unit, integration, security and transaction-rollback tests.
+- **127 automated tests:** unit, integration, security, role and transaction-rollback tests, run by
+  GitHub Actions on every push.
 - **Docker Compose** setup with PostgreSQL.
 
 ---
 
 ## Tech Stack
 
-| Area        | Technology                                                      |
-|-------------|-----------------------------------------------------------------|
-| Language    | Java 21                                                         |
-| Framework   | Spring Boot 4.1 (Web MVC, Data JPA, Validation)                 |
-| Security    | Spring Security, OAuth2 Resource Server (JWT, HS256), BCrypt    |
-| Persistence | Hibernate, H2 (local runs and tests), PostgreSQL (Docker)       |
-| Testing     | JUnit 5, Mockito, MockMvc, Spring Security Test, AssertJ        |
-| Build / Run | Maven wrapper, Docker, Docker Compose                           |
+| Area          | Technology                                                      |
+|---------------|-----------------------------------------------------------------|
+| Language      | Java 21                                                         |
+| Framework     | Spring Boot 4.1 (Web MVC, Data JPA, Validation)                 |
+| Security      | Spring Security, OAuth2 Resource Server (JWT, HS256), BCrypt    |
+| Persistence   | Hibernate, H2 (local runs and tests), PostgreSQL (Docker)       |
+| API docs      | springdoc-openapi, Swagger UI                                   |
+| Testing       | JUnit 5, Mockito, MockMvc, Spring Security Test, AssertJ        |
+| Build and CI  | Maven wrapper, GitHub Actions, Docker, Docker Compose           |
 
 ---
 
@@ -73,7 +83,8 @@ TimeSlot 1 ─ * CartItem
 
 ## API
 
-All endpoints accept and return JSON. Lists are paged with `?page=0&size=20&sort=id`.
+All endpoints accept and return JSON. Lists are paged with `?page=0&size=20&sort=id,asc`.
+The full, always up-to-date reference is in Swagger UI at `/swagger-ui.html`.
 
 **Access:** 🌐 public · 🔒 any logged-in user · 🏷️ seller (or admin) · 🛡️ admin only.
 Logged-in requests send `Authorization: Bearer <token>`. `/me/...` always means the logged-in user.
@@ -115,20 +126,21 @@ Logged-in requests send `Authorization: Bearer <token>`. `/me/...` always means 
 | PATCH  | `/cancelTimeSlot/{id}`                 | 🏷️     | Cancel a slot and its bookings           | 200     |
 | DELETE | `/deleteTimeSlot/{id}`                 | 🏷️     | Delete a slot that has no bookings       | 204     |
 
-### Cart
+### Booking
 
-| Method | Endpoint                  | Access | Description                                  | Success |
-|--------|---------------------------|--------|----------------------------------------------|---------|
-| POST   | `/me/cart`                | 🔒     | Add a slot (or change its number of people)  | 201     |
-| GET    | `/me/cart`                | 🔒     | View the cart with prices and total          | 200     |
-| DELETE | `/me/cart/{timeSlotId}`   | 🔒     | Remove a slot from the cart                  | 204     |
-| DELETE | `/me/cart`                | 🔒     | Empty the cart                               | 204     |
+| Method | Endpoint                    | Access | Description                                          | Success |
+|--------|-----------------------------|--------|------------------------------------------------------|---------|
+| POST   | `/me/reserveNow`            | 🔒     | Book one slot now (removes it from your cart if there) | 201   |
+| POST   | `/me/cart`                  | 🔒     | Add a slot to your cart (or change its number of people) | 201 |
+| GET    | `/me/cart`                  | 🔒     | View your cart with prices and total                 | 200     |
+| DELETE | `/me/cart/{timeSlotId}`     | 🔒     | Remove a slot from your cart                         | 204     |
+| DELETE | `/me/cart`                  | 🔒     | Empty your cart                                      | 204     |
+| POST   | `/me/checkout`              | 🔒     | Book everything in your cart, all or nothing         | 201     |
 
 ### Reservations
 
 | Method | Endpoint                    | Access | Description                                  | Success |
 |--------|-----------------------------|--------|----------------------------------------------|---------|
-| POST   | `/me/checkout`              | 🔒     | Book everything in the cart                  | 201     |
 | GET    | `/me/reservations`          | 🔒     | Your bookings, newest first (paged)          | 200     |
 | GET    | `/getReservation/{id}`      | 🔒     | One booking (its guest or the seller)        | 200     |
 | PATCH  | `/cancelReservation/{id}`   | 🔒     | Cancel your booking, freeing the places      | 200     |
@@ -158,16 +170,15 @@ BUYER=$(curl -s -X POST localhost:8080/auth/login -H "Content-Type: application/
 
 curl "localhost:8080/listTimeSlots?productId=1&from=2030-06-01T00:00&to=2030-06-01T23:59"
 
-curl -X POST localhost:8080/me/cart -H "Authorization: Bearer $BUYER" -H "Content-Type: application/json" \
+curl -X POST localhost:8080/me/reserveNow -H "Authorization: Bearer $BUYER" -H "Content-Type: application/json" \
   -d '{"timeSlotId":1,"numberPeople":2}'
-curl -X POST localhost:8080/me/checkout -H "Authorization: Bearer $BUYER"
 ```
 
 ### Errors
 
 | Status | When                                                                                    |
 |--------|-----------------------------------------------------------------------------------------|
-| 400    | Invalid input; an `errors` map lists each invalid field                                 |
+| 400    | Invalid input or an unknown sort field; an `errors` map lists each invalid field         |
 | 401    | Missing, invalid or expired token; or wrong email/password at login                     |
 | 403    | Logged in, but not allowed: wrong role, or it belongs to someone else                   |
 | 404    | User, experience, time slot, cart line or reservation not found                         |
@@ -212,7 +223,15 @@ Requires JDK 21+. Uses an in-memory database that is recreated on every start.
 ./mvnw spring-boot:run
 ```
 
-The API runs on `http://localhost:8080`; the H2 console is at `http://localhost:8080/h2-console`.
+| What              | Where                                   |
+|-------------------|-----------------------------------------|
+| API               | `http://localhost:8080`                 |
+| Interactive docs  | `http://localhost:8080/swagger-ui.html` |
+| OpenAPI spec      | `http://localhost:8080/v3/api-docs`     |
+| H2 console        | `http://localhost:8080/h2-console`      |
+
+**Using Swagger UI:** register with `POST /auth/register`, log in with `POST /auth/login`, copy the
+`accessToken`, click **Authorize** and paste it. Protected endpoints then work from the page.
 
 ### Run with Docker (PostgreSQL)
 
@@ -232,6 +251,7 @@ Stop with `docker compose down` (add `-v` to also delete the database data).
 ```
 
 No setup needed: the tests use a test-only JWT secret from `src/test/resources`.
+GitHub Actions runs the same build on every push to `main` and on pull requests.
 
 ---
 
@@ -248,6 +268,8 @@ No setup needed: the tests use a test-only JWT secret from `src/test/resources`.
   service layer checks ownership, so a seller can only manage their own experiences. Admin accounts can't be
   created through the API; they come from the `ADMIN_EMAIL` setting.
 - **No account enumeration.** Wrong passwords and unknown emails get the same login error.
+- **One set of booking rules.** "Book now" and checkout share one method that checks the slot, takes the places
+  and creates the reservation, so both paths always follow the same rules.
 - **All-or-nothing checkout.** Checkout runs in one transaction. A test that runs outside a test transaction
   proves that a failing cart line really rolls back the places taken for earlier lines.
 - **Optimistic locking.** `TimeSlot` has a `@Version` field, so two guests booking the last place at the same
@@ -258,6 +280,8 @@ No setup needed: the tests use a test-only JWT secret from `src/test/resources`.
   SQL statements to prove it.
 - **Lazy loading with `open-in-view` disabled**, so no hidden database queries run outside the service layer.
 - **Soft cancel instead of delete.** Cancelled slots and reservations stay in the database as history.
+- **Docs generated from the code.** springdoc builds the OpenAPI spec from the controllers and their
+  annotations, so the documentation can't drift from the real API.
 
 ---
 
@@ -266,8 +290,8 @@ No setup needed: the tests use a test-only JWT secret from `src/test/resources`.
 ```
 src/main/java/com/xperience/
 ├── XperienceApplication.java
-├── config/        # security rules, roles, JWT encoder/decoder, admin setup
-├── controller/    # REST endpoints
+├── config/        # security rules, roles, JWT encoder/decoder, OpenAPI setup, admin setup
+├── controller/    # REST endpoints, documented with OpenAPI annotations
 ├── dto/           # request/response records with validation and mappers
 ├── entity/        # JPA entities and enums
 ├── exception/     # custom exceptions and the global exception handler
@@ -275,7 +299,9 @@ src/main/java/com/xperience/
 └── service/       # business logic, transactions and ownership checks
 
 src/test/java/com/xperience/
-├── controller/    # MockMvc integration tests through the full stack, incl. security
+├── controller/    # MockMvc integration tests through the full stack, incl. security and roles
 ├── repository/    # query tests (e.g. proving there's no N+1)
 └── service/       # service tests (Mockito unit tests and integration tests)
+
+.github/workflows/ci.yml   # GitHub Actions: build and run all tests
 ```

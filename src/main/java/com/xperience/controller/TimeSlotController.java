@@ -7,6 +7,7 @@ import com.xperience.dto.timeslot.TimeSlotRequest;
 import com.xperience.dto.timeslot.TimeSlotResponse;
 import com.xperience.service.TimeSlotService;
 import jakarta.validation.Valid;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.data.web.PagedModel;
@@ -45,7 +46,7 @@ public class TimeSlotController {
     public PagedModel<TimeSlotResponse> listTimeSlots(@RequestParam Long productId,
                                                       @RequestParam LocalDateTime from,
                                                       @RequestParam LocalDateTime to,
-                                                      @PageableDefault(size = 50) Pageable pageable) {
+                                                      @ParameterObject @PageableDefault(size = 50) Pageable pageable) {
         return new PagedModel<>(timeSlotService.listTimeSlots(productId, from, to, pageable));
     }
 

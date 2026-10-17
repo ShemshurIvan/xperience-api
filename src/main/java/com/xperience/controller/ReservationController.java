@@ -6,6 +6,7 @@ import com.xperience.dto.reservation.ReservationRequest;
 import com.xperience.dto.reservation.ReservationResponse;
 import com.xperience.service.ReservationService;
 import jakarta.validation.Valid;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.data.web.PagedModel;
@@ -52,7 +53,7 @@ public class ReservationController {
                description = "Newest first, paged.")
     @GetMapping("/me/reservations")
     public PagedModel<ReservationResponse> getMyReservations(@AuthenticationPrincipal Jwt jwt,
-                                                             @PageableDefault(size = 20) Pageable pageable){
+                                                             @ParameterObject @PageableDefault(size = 20) Pageable pageable){
         return new PagedModel<>(reservationService.getMyReservations(Long.valueOf(jwt.getSubject()), pageable));
     }
     @Operation(summary = "Book one slot now, without the cart",

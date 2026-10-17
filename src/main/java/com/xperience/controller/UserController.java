@@ -7,6 +7,7 @@ import com.xperience.dto.user.UserRequest;
 import com.xperience.dto.user.UserResponse;
 import com.xperience.service.UserService;
 import jakarta.validation.Valid;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.data.web.PagedModel;
@@ -50,7 +51,7 @@ public class UserController {
     @Operation(summary = "List all users",
                description = "Admins only. Paged.")
     @GetMapping("/get")
-    public PagedModel<UserResponse> getAllUser(@PageableDefault(size = 20, sort = "id") Pageable pageable) {
+    public PagedModel<UserResponse> getAllUser(@ParameterObject @PageableDefault(size = 20, sort = "id") Pageable pageable) {
         return new PagedModel<>(userService.returnAllUsers(pageable));
     }
 

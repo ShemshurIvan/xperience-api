@@ -7,6 +7,7 @@ import com.xperience.dto.product.ProductRequest;
 import com.xperience.dto.product.ProductResponse;
 import com.xperience.service.ProductService;
 import jakarta.validation.Valid;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.data.web.PagedModel;
@@ -57,7 +58,7 @@ public class ProductController {
                description = "Paged. No account needed.")
     @SecurityRequirements
     @GetMapping("/products")
-    public PagedModel<ProductResponse> findAll(@PageableDefault(size = 20, sort = "id") Pageable pageable) {
+    public PagedModel<ProductResponse> findAll(@ParameterObject @PageableDefault(size = 20, sort = "id") Pageable pageable) {
         return new PagedModel<>(productService.findAll(pageable));
     }
 

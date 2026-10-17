@@ -20,6 +20,7 @@ services:
   app:
     build: .
     container_name: xperience-app
+    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
@@ -29,8 +30,6 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the .env file}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in the .env file}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
-      # Hibernate creates/updates the tables until Flyway migrations are added
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_H2_CONSOLE_ENABLED: "false"
       SPRING_JPA_SHOW_SQL: "false"
     ports:
