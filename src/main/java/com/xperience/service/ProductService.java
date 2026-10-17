@@ -2,24 +2,26 @@ package com.xperience.service;
 
 import com.xperience.dto.product.ProductRequest;
 import com.xperience.dto.product.ProductResponse;
+import com.xperience.dto.product.ProductSearchCriteria;
 import com.xperience.entity.Product;
 import com.xperience.entity.ReservationStatus;
 import com.xperience.entity.User;
-import com.xperience.exception.ActiveBookingOnProductExistException;
-import com.xperience.exception.ForbiddenException;
-import com.xperience.exception.ProductNotFoundException;
-import com.xperience.exception.UserNotFoundException;
+import com.xperience.exception.*;
 import com.xperience.repository.CartItemRepository;
 import com.xperience.repository.ProductRepository;
 import com.xperience.repository.ReservationRepository;
 import com.xperience.repository.UserRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+
+import static com.xperience.repository.ProductSpecifications.*;
 
 @Service
 public class ProductService {
@@ -73,11 +75,6 @@ public class ProductService {
         return ProductResponse.from(product);
     }
 
-    @Transactional(readOnly = true)
-    public Page<ProductResponse> findAll(Pageable pageable) {
-        return productRepository.findAll(pageable).map(ProductResponse::from);
-    }
-
     @Transactional
     public void deleteProductById(Long currentUserId, boolean isAdmin, Long id) {
         Product product = productRepository.findById(id)
@@ -102,5 +99,28 @@ public class ProductService {
         if (!product.getOwner().getId().equals(currentUserId)) {
             throw new ForbiddenException("Only the owner can change this experience");
         }
+    }
+
+    @Transactional(readOnly = true)
+    public Page<ProductResponse> search(ProductSearchCriteria criteria, Pageable pageable) {
+        if(criteria.minPrice() != null && criteria.maxPrice() != null && criteria.minPrice().compareTo(criteria.maxPrice()) > 0) {
+            throw new BadRequestException("Minimum price must not be greater than Maximum price");
+        }
+        if((criteria.from() == null) != (criteria.to() == null)) {
+            throw new BadRequestException("Give both 'to' and 'from', or neither");
+        }
+        if(criteria.from() != null && criteria.to().isBefore(criteria.from())) {
+            throw new  BadRequestException("'from' must be before 'to'");
+        }
+
+        List<Specification<Product>> specifications = new ArrayList<>();
+        if(criteria.name() != null &&  !criteria.name().isBlank()) specifications.add(searchByName(criteria.name().trim()));
+        if(criteria.minPrice() != null) specifications.add(priceAtLeast(criteria.minPrice()));
+        if(criteria.maxPrice() != null) specifications.add(priceAtMost(criteria.maxPrice()));
+        int people = criteria.people() == null ? 1 : criteria.people();
+        if(criteria.people() != null) specifications.add(fitsGroupOf(people));
+        if(criteria.from() != null) specifications.add(hasFreeSlotBetween(criteria.from(), criteria.to(), people));
+
+        return productRepository.findAll(Specification.allOf(specifications), pageable).map(ProductResponse::from);
     }
 }

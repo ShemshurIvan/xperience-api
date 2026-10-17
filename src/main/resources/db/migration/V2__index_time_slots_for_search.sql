@@ -1,0 +1,1 @@
+create index idx_time_slots_status_start on time_slots(status, start_time);

@@ -1,5 +1,6 @@
 package com.xperience.controller;
 
+import com.xperience.dto.product.ProductSearchCriteria;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -54,12 +55,13 @@ public class ProductController {
         return ResponseEntity.ok(productService.findById(id));
     }
 
-    @Operation(summary = "List experiences",
-               description = "Paged. No account needed.")
+    @Operation(summary = "Search experiences",
+               description = "All filters are optional and can be combined. from/to find experiences with a free slot in that range.")
     @SecurityRequirements
     @GetMapping("/products")
-    public PagedModel<ProductResponse> findAll(@ParameterObject @PageableDefault(size = 20, sort = "id") Pageable pageable) {
-        return new PagedModel<>(productService.findAll(pageable));
+    public PagedModel<ProductResponse> findAll(@Valid @ParameterObject ProductSearchCriteria productSearchCriteria,
+                                               @ParameterObject @PageableDefault(size = 20, sort = "id") Pageable pageable) {
+        return new PagedModel<>(productService.search(productSearchCriteria, pageable));
     }
 
     @Operation(summary = "Delete an experience",

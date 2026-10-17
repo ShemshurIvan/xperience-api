@@ -22,6 +22,8 @@ buyers pick a slot, book it straight away or through a cart, and get a confirmed
   - **Seller:** everything a user can, plus create experiences and manage their own experiences and time slots.
   - **Admin:** everything, plus list all users and remove experiences or accounts for moderation.
 - **Experiences:** a seller sets a price, a maximum group size and a duration.
+- **Search:** find experiences by name, price range, group size and free slots in a date range;
+  every filter is optional and they can be combined.
 - **Time slots:** bookable sessions; the end time is calculated from the experience's duration.
 - **Calendar:** an experience's slots for any date range, sorted and paged. Browsing needs no account.
 - **Two ways to book:**
@@ -53,7 +55,7 @@ buyers pick a slot, book it straight away or through a cart, and get a confirmed
 | Language      | Java 21                                                         |
 | Framework     | Spring Boot 4.1 (Web MVC, Data JPA, Validation)                 |
 | Security      | Spring Security, OAuth2 Resource Server (JWT, HS256), BCrypt    |
-| Persistence   | Hibernate, H2 (local runs and tests), PostgreSQL (Docker)       |
+| Persistence   | Hibernate, Flyway, H2 (local runs and tests), PostgreSQL (Docker) |
 | API docs      | springdoc-openapi, Swagger UI                                   |
 | Testing       | JUnit 5, Mockito, MockMvc, Spring Security Test, AssertJ        |
 | Build and CI  | Maven wrapper, GitHub Actions, Docker, Docker Compose           |
@@ -109,11 +111,24 @@ Logged-in requests send `Authorization: Bearer <token>`. `/me/...` always means 
 
 | Method | Endpoint                | Access | Description                                          | Success |
 |--------|-------------------------|--------|------------------------------------------------------|---------|
-| GET    | `/products`             | 🌐     | List experiences (paged)                             | 200     |
+| GET    | `/products`             | 🌐     | Search experiences (all filters optional, paged)     | 200     |
 | GET    | `/getProduct/{id}`      | 🌐     | Get one experience                                   | 200     |
 | POST   | `/createProduct`        | 🏷️     | Create an experience (you become its owner)          | 201     |
 | PUT    | `/updateProduct/{id}`   | 🏷️     | Update your experience                               | 200     |
 | DELETE | `/deleteProduct/{id}`   | 🏷️     | Delete your experience (admins: any experience)      | 204     |
+
+**Search filters for `GET /products`** (all optional, combine as needed):
+
+| Parameter               | Finds experiences…                                                   |
+|-------------------------|----------------------------------------------------------------------|
+| `name`                  | whose name contains the text, ignoring case (`name=lambo`)           |
+| `minPrice`, `maxPrice`  | priced within the range                                              |
+| `people`                | that allow a group of at least this size                             |
+| `from`, `to`            | with an open slot starting in this range that still has enough free places (`people`, default 1). Give both or neither. |
+
+```
+GET /products?name=lambo&maxPrice=300&people=2&from=2030-06-01T00:00&to=2030-06-07T23:59
+```
 
 ### Time slots
 
@@ -178,7 +193,7 @@ curl -X POST localhost:8080/me/reserveNow -H "Authorization: Bearer $BUYER" -H "
 
 | Status | When                                                                                    |
 |--------|-----------------------------------------------------------------------------------------|
-| 400    | Invalid input or an unknown sort field; an `errors` map lists each invalid field         |
+| 400    | Invalid input, an unknown sort field or an invalid search range; an `errors` map lists each invalid field |
 | 401    | Missing, invalid or expired token; or wrong email/password at login                     |
 | 403    | Logged in, but not allowed: wrong role, or it belongs to someone else                   |
 | 404    | User, experience, time slot, cart line or reservation not found                         |
@@ -217,7 +232,8 @@ cp .env.example .env
 
 ### Run locally (H2)
 
-Requires JDK 21+. Uses an in-memory database that is recreated on every start.
+Requires JDK 21+. Uses an in-memory database that is recreated on every start; Flyway builds the
+tables from the migrations each time.
 
 ```bash
 ./mvnw spring-boot:run
@@ -242,7 +258,17 @@ docker compose up --build
 ```
 
 The API runs on `http://localhost:8080`, PostgreSQL on `localhost:5432`.
+On each start, Flyway applies any migrations the database doesn't have yet; existing data is kept.
 Stop with `docker compose down` (add `-v` to also delete the database data).
+
+### Changing the database schema
+
+The schema lives in versioned SQL files in `src/main/resources/db/migration`, applied by Flyway in order
+(`V1__create_tables.sql`, `V2__index_time_slots_for_search.sql`, ...). Hibernate only validates that the
+entities match the tables (`ddl-auto=validate`) and never changes them.
+
+To change the schema, add a new file with the next version number, e.g. `V3__add_product_location.sql`,
+and update the entity to match. Never edit a migration that has already run.
 
 ### Run the tests
 
@@ -274,6 +300,13 @@ GitHub Actions runs the same build on every push to `main` and on pull requests.
   proves that a failing cart line really rolls back the places taken for earlier lines.
 - **Optimistic locking.** `TimeSlot` has a `@Version` field, so two guests booking the last place at the same
   moment can't both succeed; the second gets a 409.
+- **Versioned schema with Flyway.** Every schema change is a numbered SQL migration, the same files run in
+  tests, locally and in Docker, and Hibernate only validates the result. Enums are stored as text with
+  `CHECK` constraints so the same SQL works on H2 and PostgreSQL.
+- **Search with JPA Specifications.** Each filter is a small reusable `Specification`; only the filters the
+  client sends are combined. Availability uses an `exists` subquery instead of a join, so a product with
+  several matching slots appears once and paging stays correct. An index on `time_slots (status, start_time)`
+  supports it.
 - **Overlap detection in the database.** A JPQL query checks `start < newEnd and end > newStart`; updates exclude
   the slot itself.
 - **No N+1 queries.** The cart and booking lists load slots and experiences with `join fetch`; a test counts the
@@ -295,8 +328,12 @@ src/main/java/com/xperience/
 ├── dto/           # request/response records with validation and mappers
 ├── entity/        # JPA entities and enums
 ├── exception/     # custom exceptions and the global exception handler
-├── repository/    # Spring Data JPA repositories and JPQL queries
+├── repository/    # Spring Data JPA repositories, JPQL queries and search Specifications
 └── service/       # business logic, transactions and ownership checks
+
+src/main/resources/
+├── application.properties
+└── db/migration/  # Flyway migrations: V1__create_tables.sql, V2__index_time_slots_for_search.sql
 
 src/test/java/com/xperience/
 ├── controller/    # MockMvc integration tests through the full stack, incl. security and roles
