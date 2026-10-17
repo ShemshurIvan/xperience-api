@@ -1,5 +1,8 @@
 package com.xperience.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.xperience.dto.auth.LoginRequest;
 import com.xperience.dto.auth.TokenResponse;
 import com.xperience.dto.user.UserRequest;
@@ -13,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = "Authentication", description = "Register and log in to get a JWT")
 @RestController
 public class AuthController {
 
@@ -24,12 +28,18 @@ public class AuthController {
         this.userService = userService;
     }
 
+    @Operation(summary = "Create an account",
+               description = "accountType is USER (default) or SELLER. Admin accounts can't be created here.")
+    @SecurityRequirements
     @PostMapping("/auth/register")
     @ResponseStatus(HttpStatus.CREATED)
     public UserResponse register(@Valid @RequestBody UserRequest userRequest) {
         return userService.createUser(userRequest);
     }
 
+    @Operation(summary = "Log in and get a JWT",
+               description = "Returns an accessToken valid for 60 minutes. Click Authorize and paste it to call protected endpoints.")
+    @SecurityRequirements
     @PostMapping("/auth/login")
     public TokenResponse login(@Valid @RequestBody LoginRequest loginRequest) {
         return authService.login(loginRequest);

@@ -31,6 +31,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/products", "/getProduct/**",
                                 "/listTimeSlots", "/getTimeSlot/**").permitAll()
                         .requestMatchers("/h2-console/**").permitAll()
+                        .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/createProduct", "/createTimeSlot/**").hasRole("SELLER")
                         .requestMatchers(HttpMethod.PUT, "/updateProduct/**", "/updateTimeSlot/**").hasRole("SELLER")
                         .requestMatchers(HttpMethod.PATCH, "/cancelTimeSlot/**").hasRole("SELLER")

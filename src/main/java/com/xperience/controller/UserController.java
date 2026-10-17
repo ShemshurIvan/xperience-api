@@ -1,5 +1,8 @@
 package com.xperience.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.xperience.dto.user.UserRequest;
 import com.xperience.dto.user.UserResponse;
 import com.xperience.service.UserService;
@@ -14,6 +17,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
+@Tag(name = "Users", description = "Accounts and profiles")
 @RestController("/api")
 public class UserController {
 
@@ -22,28 +26,36 @@ public class UserController {
         this.userService = userService;
     }
 
+    @Operation(summary = "Create an account (same as /auth/register)")
+    @SecurityRequirements
     @PostMapping("/createUser")
     public ResponseEntity<UserResponse> createUser(@RequestBody @Valid UserRequest userRequest) {
         UserResponse response = userService.createUser(userRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @Operation(summary = "Update your own account")
     @PutMapping("/updateUser")
     public ResponseEntity<UserResponse> updateUser(@AuthenticationPrincipal Jwt jwt,
                                                    @RequestBody @Valid UserRequest userRequest) {
         return ResponseEntity.ok(userService.updateUser(Long.valueOf(jwt.getSubject()), userRequest));
     }
 
+    @Operation(summary = "Get one user")
     @GetMapping("/get/{id}")
     public ResponseEntity<UserResponse> getUserById(@PathVariable Long id) {
         return ResponseEntity.ok(userService.getUserById(id));
     }
 
+    @Operation(summary = "List all users",
+               description = "Admins only. Paged.")
     @GetMapping("/get")
     public PagedModel<UserResponse> getAllUser(@PageableDefault(size = 20, sort = "id") Pageable pageable) {
         return new PagedModel<>(userService.returnAllUsers(pageable));
     }
 
+    @Operation(summary = "Delete an account",
+               description = "Your own account, or any account if you are an admin. Bookings you made are kept.")
     @DeleteMapping("/deleteUser/{id}")
     public ResponseEntity<Void> deleteUserById(@AuthenticationPrincipal Jwt jwt, Authentication authentication,
                                                @PathVariable Long id) {
