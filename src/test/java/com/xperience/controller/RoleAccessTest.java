@@ -136,7 +136,7 @@ class RoleAccessTest {
         Long productId = idOf(createProduct(adminToken));
         Long slotId = idOf(createSlot(adminToken, productId));
 
-        mockMvc.perform(post("/me/cart").header("Authorization", "Bearer " + sellerToken)
+        mockMvc.perform(post("/api/me/cart/add").header("Authorization", "Bearer " + sellerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"timeSlotId\": " + slotId + ", \"numberPeople\": 1}"))
                 .andExpect(status().isCreated());
@@ -146,11 +146,11 @@ class RoleAccessTest {
 
     @Test
     void onlyAdmin_canListAllUsers() throws Exception {
-        mockMvc.perform(get("/get").header("Authorization", "Bearer " + buyerToken))
+        mockMvc.perform(get("/api/users").header("Authorization", "Bearer " + buyerToken))
                 .andExpect(status().isForbidden());
-        mockMvc.perform(get("/get").header("Authorization", "Bearer " + sellerToken))
+        mockMvc.perform(get("/api/users").header("Authorization", "Bearer " + sellerToken))
                 .andExpect(status().isForbidden());
-        mockMvc.perform(get("/get").header("Authorization", "Bearer " + adminToken))
+        mockMvc.perform(get("/api/users").header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.page.totalElements").value(3));
     }
@@ -159,12 +159,12 @@ class RoleAccessTest {
     void admin_canDeleteButNotEditSomeoneElsesExperience() throws Exception {
         Long productId = idOf(createProduct(sellerToken));
 
-        mockMvc.perform(put("/updateProduct/" + productId).header("Authorization", "Bearer " + adminToken)
+        mockMvc.perform(put("/api/products/update/" + productId).header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(PRODUCT_JSON))
                 .andExpect(status().isForbidden());
 
-        mockMvc.perform(delete("/deleteProduct/" + productId).header("Authorization", "Bearer " + adminToken))
+        mockMvc.perform(delete("/api/products/delete/" + productId).header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isNoContent());
         assertThat(productRepository.existsById(productId)).isFalse();
     }
@@ -175,11 +175,11 @@ class RoleAccessTest {
         register("other.seller@example.com", "SELLER");
         String otherSellerToken = login("other.seller@example.com");
 
-        mockMvc.perform(put("/updateProduct/" + productId).header("Authorization", "Bearer " + otherSellerToken)
+        mockMvc.perform(put("/api/products/update/" + productId).header("Authorization", "Bearer " + otherSellerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(PRODUCT_JSON))
                 .andExpect(status().isForbidden());
-        mockMvc.perform(delete("/deleteProduct/" + productId).header("Authorization", "Bearer " + otherSellerToken))
+        mockMvc.perform(delete("/api/products/delete/" + productId).header("Authorization", "Bearer " + otherSellerToken))
                 .andExpect(status().isForbidden());
     }
 
@@ -188,10 +188,10 @@ class RoleAccessTest {
         Long sellerId = userRepository.findByEmail("seller@example.com").orElseThrow().getId();
         Long adminId = userRepository.findByEmail("boss@example.com").orElseThrow().getId();
 
-        mockMvc.perform(delete("/deleteUser/" + adminId).header("Authorization", "Bearer " + buyerToken))
+        mockMvc.perform(delete("/api/users/delete/" + adminId).header("Authorization", "Bearer " + buyerToken))
                 .andExpect(status().isForbidden());
 
-        mockMvc.perform(delete("/deleteUser/" + sellerId).header("Authorization", "Bearer " + adminToken))
+        mockMvc.perform(delete("/api/users/delete/" + sellerId).header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isNoContent());
         assertThat(userRepository.existsById(sellerId)).isFalse();
     }
@@ -216,13 +216,13 @@ class RoleAccessTest {
 
     private ResultActions registerRequest(String email, String accountType) throws Exception {
         String type = accountType == null ? "" : ", \"accountType\": \"" + accountType + "\"";
-        return mockMvc.perform(post("/auth/register").contentType(MediaType.APPLICATION_JSON).content("""
+        return mockMvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content("""
                 {"firstName": "Test", "lastName": "User", "email": "%s", "password": "secret123", "age": 30%s}
                 """.formatted(email, type)));
     }
 
     private String login(String email) throws Exception {
-        String body = mockMvc.perform(post("/auth/login").contentType(MediaType.APPLICATION_JSON)
+        String body = mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\": \"" + email + "\", \"password\": \"secret123\"}"))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
@@ -230,14 +230,14 @@ class RoleAccessTest {
     }
 
     private ResultActions createProduct(String token) throws Exception {
-        return mockMvc.perform(post("/createProduct").header("Authorization", "Bearer " + token)
+        return mockMvc.perform(post("/api/products/create").header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(PRODUCT_JSON));
     }
 
     private ResultActions createSlot(String token, Long productId) throws Exception {
         String start = LocalDateTime.now().plusDays(3).withNano(0).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-        return mockMvc.perform(post("/createTimeSlot/" + productId).header("Authorization", "Bearer " + token)
+        return mockMvc.perform(post("/api/slots/create/" + productId).header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"startTime\": \"" + start + "\", \"maxPeopleInSlot\": 2}"));
     }

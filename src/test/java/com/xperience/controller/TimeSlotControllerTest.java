@@ -133,7 +133,7 @@ class TimeSlotControllerTest {
         saveSlot(at(10, 0), 2);
         saveSlot(DAY.plusDays(3).withHour(10), 2);   // outside the range
 
-        mockMvc.perform(get("/listTimeSlots")
+        mockMvc.perform(get("/api/slots")
                         .param("productId", product.getId().toString())
                         .param("from", json(DAY))
                         .param("to", json(DAY.plusDays(1))))
@@ -146,7 +146,7 @@ class TimeSlotControllerTest {
 
     @Test
     void listTimeSlots_returns400WhenRangeIsReversed() throws Exception {
-        mockMvc.perform(get("/listTimeSlots")
+        mockMvc.perform(get("/api/slots")
                         .param("productId", product.getId().toString())
                         .param("from", json(DAY.plusDays(1)))
                         .param("to", json(DAY)))
@@ -155,7 +155,7 @@ class TimeSlotControllerTest {
 
     @Test
     void listTimeSlots_returns404WhenProductMissing() throws Exception {
-        mockMvc.perform(get("/listTimeSlots")
+        mockMvc.perform(get("/api/slots")
                         .param("productId", "999999")
                         .param("from", json(DAY))
                         .param("to", json(DAY.plusDays(1))))
@@ -168,7 +168,7 @@ class TimeSlotControllerTest {
     void getTimeSlot_returnsSlot() throws Exception {
         TimeSlot slot = saveSlot(at(10, 0), 2);
 
-        mockMvc.perform(get("/getTimeSlot/" + slot.getId()))
+        mockMvc.perform(get("/api/slots/" + slot.getId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(slot.getId()))
                 .andExpect(jsonPath("$.startTime").value(json(at(10, 0))));
@@ -176,7 +176,7 @@ class TimeSlotControllerTest {
 
     @Test
     void getTimeSlot_returns404WhenMissing() throws Exception {
-        mockMvc.perform(get("/getTimeSlot/999999"))
+        mockMvc.perform(get("/api/slots/999999"))
                 .andExpect(status().isNotFound());
     }
 
@@ -262,7 +262,7 @@ class TimeSlotControllerTest {
         TimeSlot slot = saveSlot(at(10, 0), 4);
         Reservation booking = saveReservation(slot, saveUser("guest@example.com"));
 
-        mockMvc.perform(patch("/cancelTimeSlot/" + slot.getId()).with(loggedInAs(host.getId())))
+        mockMvc.perform(patch("/api/slots/cancel/" + slot.getId()).with(loggedInAs(host.getId())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CANCELLED"));
 
@@ -272,7 +272,7 @@ class TimeSlotControllerTest {
 
     @Test
     void cancelTimeSlot_returns404WhenMissing() throws Exception {
-        mockMvc.perform(patch("/cancelTimeSlot/999999").with(loggedInAs(host.getId())))
+        mockMvc.perform(patch("/api/slots/cancel/999999").with(loggedInAs(host.getId())))
                 .andExpect(status().isNotFound());
     }
 
@@ -283,7 +283,7 @@ class TimeSlotControllerTest {
         TimeSlot slot = saveSlot(at(10, 0), 2);
         saveCartItem(saveUser("guest@example.com"), slot);
 
-        mockMvc.perform(delete("/deleteTimeSlot/" + slot.getId()).with(loggedInAs(host.getId())))
+        mockMvc.perform(delete("/api/slots/delete/" + slot.getId()).with(loggedInAs(host.getId())))
                 .andExpect(status().isNoContent());
         timeSlotRepository.flush();
 
@@ -297,7 +297,7 @@ class TimeSlotControllerTest {
         TimeSlot slot = saveSlot(at(10, 0), 2);
         saveReservation(slot, saveUser("guest@example.com"));
 
-        mockMvc.perform(delete("/deleteTimeSlot/" + slot.getId()).with(loggedInAs(host.getId())))
+        mockMvc.perform(delete("/api/slots/delete/" + slot.getId()).with(loggedInAs(host.getId())))
                 .andExpect(status().isConflict());
 
         assertThat(timeSlotRepository.existsById(slot.getId())).isTrue();
@@ -305,7 +305,7 @@ class TimeSlotControllerTest {
 
     @Test
     void deleteTimeSlot_returns404WhenMissing() throws Exception {
-        mockMvc.perform(delete("/deleteTimeSlot/999999").with(loggedInAs(host.getId())))
+        mockMvc.perform(delete("/api/slots/delete/999999").with(loggedInAs(host.getId())))
                 .andExpect(status().isNotFound());
     }
 
@@ -315,7 +315,7 @@ class TimeSlotControllerTest {
     void createTimeSlot_returns403ForSomeoneElsesProduct() throws Exception {
         User stranger = saveUser("stranger@example.com");
 
-        mockMvc.perform(post("/createTimeSlot/" + product.getId())
+        mockMvc.perform(post("/api/slots/create/" + product.getId())
                         .with(loggedInAs(stranger.getId()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(slotJson(at(10, 0), 2)))
@@ -329,13 +329,13 @@ class TimeSlotControllerTest {
         TimeSlot slot = saveSlot(at(10, 0), 2);
         User stranger = saveUser("stranger@example.com");
 
-        mockMvc.perform(patch("/cancelTimeSlot/" + slot.getId()).with(loggedInAs(stranger.getId())))
+        mockMvc.perform(patch("/api/slots/cancel/" + slot.getId()).with(loggedInAs(stranger.getId())))
                 .andExpect(status().isForbidden());
     }
 
     @Test
     void createTimeSlot_returns401WithoutToken() throws Exception {
-        mockMvc.perform(post("/createTimeSlot/" + product.getId())
+        mockMvc.perform(post("/api/slots/create/" + product.getId())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(slotJson(at(10, 0), 2)))
                 .andExpect(status().isUnauthorized());
@@ -345,8 +345,8 @@ class TimeSlotControllerTest {
     void calendar_isPublic() throws Exception {
         TimeSlot slot = saveSlot(at(10, 0), 2);
 
-        mockMvc.perform(get("/getTimeSlot/" + slot.getId())).andExpect(status().isOk());
-        mockMvc.perform(get("/listTimeSlots")
+        mockMvc.perform(get("/api/slots/" + slot.getId())).andExpect(status().isOk());
+        mockMvc.perform(get("/api/slots")
                         .param("productId", product.getId().toString())
                         .param("from", json(DAY))
                         .param("to", json(DAY.plusDays(1))))
@@ -362,14 +362,14 @@ class TimeSlotControllerTest {
     // ---------- helpers ----------
 
     private ResultActions createSlot(Long productId, LocalDateTime start, int maxPeople) throws Exception {
-        return mockMvc.perform(post("/createTimeSlot/" + productId)
+        return mockMvc.perform(post("/api/slots/create/" + productId)
                 .with(loggedInAs(host.getId()))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(slotJson(start, maxPeople)));
     }
 
     private ResultActions updateSlot(Long slotId, LocalDateTime start, int maxPeople) throws Exception {
-        return mockMvc.perform(put("/updateTimeSlot/" + slotId)
+        return mockMvc.perform(put("/api/slots/update/" + slotId)
                 .with(loggedInAs(host.getId()))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(slotJson(start, maxPeople)));

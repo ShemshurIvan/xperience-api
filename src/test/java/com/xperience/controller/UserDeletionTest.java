@@ -63,7 +63,7 @@ class UserDeletionTest {
         Reservation booking = saveReservation(hostSlot, guest, ReservationStatus.CONFIRMED);
         saveCartItem(guest, hostSlot);
 
-        mockMvc.perform(delete("/deleteUser/" + guest.getId()).with(loggedInAs(guest.getId())))
+        mockMvc.perform(delete("/api/users/delete/" + guest.getId()).with(loggedInAs(guest.getId())))
                 .andExpect(status().isNoContent());
         userRepository.flush();
 
@@ -86,7 +86,7 @@ class UserDeletionTest {
         TimeSlot slot = saveSlot(saveProduct(host), LocalDateTime.now().plusDays(5));
         saveReservation(slot, guest, ReservationStatus.PENDING);
 
-        mockMvc.perform(delete("/deleteUser/" + host.getId()).with(loggedInAs(host.getId())))
+        mockMvc.perform(delete("/api/users/delete/" + host.getId()).with(loggedInAs(host.getId())))
                 .andExpect(status().isConflict());
 
         assertThat(userRepository.existsById(host.getId())).isTrue();
@@ -104,7 +104,7 @@ class UserDeletionTest {
         saveReservation(pastSlot, guest, ReservationStatus.CONFIRMED);
         saveCartItem(guest, futureSlot);
 
-        mockMvc.perform(delete("/deleteUser/" + host.getId()).with(loggedInAs(host.getId())))
+        mockMvc.perform(delete("/api/users/delete/" + host.getId()).with(loggedInAs(host.getId())))
                 .andExpect(status().isNoContent());
         userRepository.flush();
 
@@ -117,7 +117,7 @@ class UserDeletionTest {
 
     @Test
     void deleteUser_returns404WhenUserDoesNotExist() throws Exception {
-        mockMvc.perform(delete("/deleteUser/999999").with(loggedInAs(1L)))
+        mockMvc.perform(delete("/api/users/delete/999999").with(loggedInAs(1L)))
                 .andExpect(status().isNotFound());
     }
 
@@ -126,7 +126,7 @@ class UserDeletionTest {
         User user = saveUser("user@example.com");
         User other = saveUser("other@example.com");
 
-        mockMvc.perform(delete("/deleteUser/" + other.getId()).with(loggedInAs(user.getId())))
+        mockMvc.perform(delete("/api/users/delete/" + other.getId()).with(loggedInAs(user.getId())))
                 .andExpect(status().isForbidden());
 
         assertThat(userRepository.existsById(other.getId())).isTrue();
@@ -136,7 +136,7 @@ class UserDeletionTest {
     void deleteUser_returns401WithoutToken() throws Exception {
         User user = saveUser("user@example.com");
 
-        mockMvc.perform(delete("/deleteUser/" + user.getId()))
+        mockMvc.perform(delete("/api/users/delete/" + user.getId()))
                 .andExpect(status().isUnauthorized());
     }
 

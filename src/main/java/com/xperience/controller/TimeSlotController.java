@@ -21,6 +21,7 @@ import java.time.LocalDateTime;
 
 @Tag(name = "Time slots", description = "Bookable sessions of an experience")
 @RestController
+@RequestMapping("/api/slots")
 public class TimeSlotController {
 
     private final TimeSlotService timeSlotService;
@@ -31,7 +32,7 @@ public class TimeSlotController {
 
     @Operation(summary = "Open a time slot",
                description = "Only the experience's owner. The end time is calculated from the experience's duration; slots can't overlap.")
-    @PostMapping("/createTimeSlot/{productId}")
+    @PostMapping("/create/{productId}")
     public ResponseEntity<TimeSlotResponse> createTimeSlot(@AuthenticationPrincipal Jwt jwt,
                                                            @PathVariable Long productId,
                                                            @RequestBody @Valid TimeSlotRequest timeSlotRequest) {
@@ -42,7 +43,7 @@ public class TimeSlotController {
     @Operation(summary = "Calendar for a date range",
                description = "Slots of one experience starting between from and to, earliest first. No account needed.")
     @SecurityRequirements
-    @GetMapping("/listTimeSlots")
+    @GetMapping
     public PagedModel<TimeSlotResponse> listTimeSlots(@RequestParam Long productId,
                                                       @RequestParam LocalDateTime from,
                                                       @RequestParam LocalDateTime to,
@@ -52,33 +53,33 @@ public class TimeSlotController {
 
     @Operation(summary = "Change a slot's start time or capacity",
                description = "A booked slot can't be moved, and capacity can't drop below the people already booked.")
-    @PutMapping("/updateTimeSlot/{id}")
-    public ResponseEntity<TimeSlotResponse> updateSlot(@AuthenticationPrincipal Jwt jwt,
-                                                       @PathVariable Long id,
-                                                       @Valid @RequestBody TimeSlotRequest timeSlotRequest) {
+    @PutMapping("/update/{id}")
+    public ResponseEntity<TimeSlotResponse> updateTimeSlot(@AuthenticationPrincipal Jwt jwt,
+                                                           @PathVariable Long id,
+                                                           @Valid @RequestBody TimeSlotRequest timeSlotRequest) {
         TimeSlotResponse timeSlotResponse = timeSlotService.updateTimeSlot(Long.valueOf(jwt.getSubject()), id, timeSlotRequest);
         return ResponseEntity.ok(timeSlotResponse);
     }
 
     @Operation(summary = "Cancel a slot",
                description = "Also cancels its bookings and removes it from guests' carts.")
-    @PatchMapping("/cancelTimeSlot/{id}")
+    @PatchMapping("/cancel/{id}")
     public TimeSlotResponse cancelTimeSlot(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
         return timeSlotService.cancelTimeSlot(Long.valueOf(jwt.getSubject()), id);
     }
 
     @Operation(summary = "Get one time slot")
     @SecurityRequirements
-    @GetMapping("/getTimeSlot/{id}")
+    @GetMapping("/{id}")
     public TimeSlotResponse getTimeSlotById(@PathVariable Long id) {
         return timeSlotService.getTimeSlotById(id);
     }
 
     @Operation(summary = "Delete a slot",
                description = "Only slots without bookings; otherwise cancel it instead.")
-    @DeleteMapping("/deleteTimeSlot/{id}")
+    @DeleteMapping("/delete/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteTimeSlotById(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
+    public void deleteTimeSlot(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
         timeSlotService.deleteTimeSlot(Long.valueOf(jwt.getSubject()), id);
     }
 }

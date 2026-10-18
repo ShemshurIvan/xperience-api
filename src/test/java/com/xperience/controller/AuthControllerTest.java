@@ -32,7 +32,7 @@ class AuthControllerTest {
 
     @Test
     void register_returns201WithoutPassword() throws Exception {
-        mockMvc.perform(post("/auth/register").contentType(MediaType.APPLICATION_JSON).content(REGISTER_JSON))
+        mockMvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(REGISTER_JSON))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").isNumber())
                 .andExpect(jsonPath("$.password").doesNotExist());
@@ -44,7 +44,7 @@ class AuthControllerTest {
 
         String token = loginAndGetToken("IVAN@example.com", "secret123");   // email case doesn't matter
 
-        mockMvc.perform(get("/me/cart").header("Authorization", "Bearer " + token))
+        mockMvc.perform(get("/api/me/cart").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items").isArray());
     }
@@ -53,7 +53,7 @@ class AuthControllerTest {
     void login_responseDescribesTheToken() throws Exception {
         register();
 
-        mockMvc.perform(post("/auth/login").contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
                         .content(loginJson("ivan@example.com", "secret123")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").isString())
@@ -65,12 +65,12 @@ class AuthControllerTest {
     void login_returns401WithSameMessageForWrongPasswordAndUnknownEmail() throws Exception {
         register();
 
-        mockMvc.perform(post("/auth/login").contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
                         .content(loginJson("ivan@example.com", "wrong-password")))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.detail").value("Invalid email or password"));
 
-        mockMvc.perform(post("/auth/login").contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
                         .content(loginJson("nobody@example.com", "secret123")))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.detail").value("Invalid email or password"));
@@ -78,7 +78,7 @@ class AuthControllerTest {
 
     @Test
     void login_returns400ForInvalidInput() throws Exception {
-        mockMvc.perform(post("/auth/login").contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
                         .content(loginJson("", "")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.email").exists())
@@ -90,22 +90,22 @@ class AuthControllerTest {
         register();
         String token = loginAndGetToken("ivan@example.com", "secret123");
 
-        mockMvc.perform(get("/me/cart"))
+        mockMvc.perform(get("/api/me/cart"))
                 .andExpect(status().isUnauthorized());
 
         // change the last character of the signature: the token no longer matches
         String forged = token.substring(0, token.length() - 1) + (token.endsWith("A") ? "B" : "A");
-        mockMvc.perform(get("/me/cart").header("Authorization", "Bearer " + forged))
+        mockMvc.perform(get("/api/me/cart").header("Authorization", "Bearer " + forged))
                 .andExpect(status().isUnauthorized());
     }
 
     private void register() throws Exception {
-        mockMvc.perform(post("/auth/register").contentType(MediaType.APPLICATION_JSON).content(REGISTER_JSON))
+        mockMvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(REGISTER_JSON))
                 .andExpect(status().isCreated());
     }
 
     private String loginAndGetToken(String email, String password) throws Exception {
-        String body = mockMvc.perform(post("/auth/login").contentType(MediaType.APPLICATION_JSON)
+        String body = mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
                         .content(loginJson(email, password)))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();

@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "Experiences", description = "Experiences that sellers offer")
 @RestController
+@RequestMapping("/api/products")
 public class ProductController {
 
     private final ProductService productService;
@@ -31,7 +32,7 @@ public class ProductController {
 
     @Operation(summary = "Create an experience",
                description = "Sellers and admins. You become its owner.")
-    @PostMapping("/createProduct")
+    @PostMapping("/create")
     public ResponseEntity<ProductResponse> createProduct(@AuthenticationPrincipal Jwt jwt,
                                                          @RequestBody @Valid ProductRequest productRequest) {
         ProductResponse response = productService.createProduct(Long.valueOf(jwt.getSubject()), productRequest);
@@ -40,7 +41,7 @@ public class ProductController {
 
     @Operation(summary = "Update your experience",
                description = "Only the owner can change it.")
-    @PutMapping("/updateProduct/{id}")
+    @PutMapping("/update/{id}")
     public ResponseEntity<ProductResponse> updateProduct(@AuthenticationPrincipal Jwt jwt,
                                                          @PathVariable Long id,
                                                          @RequestBody @Valid ProductRequest productRequest) {
@@ -50,23 +51,23 @@ public class ProductController {
 
     @Operation(summary = "Get one experience")
     @SecurityRequirements
-    @GetMapping("/getProduct/{id}")
-    public ResponseEntity<ProductResponse> findById(@PathVariable Long id) {
+    @GetMapping("/{id}")
+    public ResponseEntity<ProductResponse> getProduct(@PathVariable Long id) {
         return ResponseEntity.ok(productService.findById(id));
     }
 
     @Operation(summary = "Search experiences",
                description = "All filters are optional and can be combined. from/to find experiences with a free slot in that range.")
     @SecurityRequirements
-    @GetMapping("/products")
-    public PagedModel<ProductResponse> findAll(@Valid @ParameterObject ProductSearchCriteria productSearchCriteria,
+    @GetMapping
+    public PagedModel<ProductResponse> search(@Valid @ParameterObject ProductSearchCriteria productSearchCriteria,
                                                @ParameterObject @PageableDefault(size = 20, sort = "id") Pageable pageable) {
         return new PagedModel<>(productService.search(productSearchCriteria, pageable));
     }
 
     @Operation(summary = "Delete an experience",
                description = "The owner, or an admin. Refused while it has upcoming bookings.")
-    @DeleteMapping("/deleteProduct/{id}")
+    @DeleteMapping("/delete/{id}")
     public ResponseEntity<Void> deleteProduct(@AuthenticationPrincipal Jwt jwt, Authentication authentication,
                                               @PathVariable Long id) {
         productService.deleteProductById(Long.valueOf(jwt.getSubject()), isAdmin(authentication), id);

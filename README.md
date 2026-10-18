@@ -89,35 +89,35 @@ All endpoints accept and return JSON. Lists are paged with `?page=0&size=20&sort
 The full, always up-to-date reference is in Swagger UI at `/swagger-ui.html`.
 
 **Access:** 🌐 public · 🔒 any logged-in user · 🏷️ seller (or admin) · 🛡️ admin only.
-Logged-in requests send `Authorization: Bearer <token>`. `/me/...` always means the logged-in user.
+Logged-in requests send `Authorization: Bearer <token>`. `/api/me/...` always means the logged-in user.
 
 ### Authentication
 
 | Method | Endpoint          | Access | Description                                           | Success |
 |--------|-------------------|--------|-------------------------------------------------------|---------|
-| POST   | `/auth/register`  | 🌐     | Create an account (`accountType`: `USER` or `SELLER`) | 201     |
-| POST   | `/auth/login`     | 🌐     | Log in, get a JWT valid for 60 minutes                | 200     |
+| POST   | `/api/auth/register` | 🌐     | Create an account (`accountType`: `USER` or `SELLER`) | 201     |
+| POST   | `/api/auth/login`    | 🌐     | Log in, get a JWT valid for 60 minutes                | 200     |
 
 ### Users
 
 | Method | Endpoint            | Access | Description                                    | Success |
 |--------|---------------------|--------|------------------------------------------------|---------|
-| PUT    | `/updateUser`       | 🔒     | Update your own account                        | 200     |
-| GET    | `/get/{id}`         | 🔒     | Get one user                                   | 200     |
-| GET    | `/get`              | 🛡️     | List all users (paged)                         | 200     |
-| DELETE | `/deleteUser/{id}`  | 🔒     | Delete your own account (admins: any account)  | 204     |
+| PUT    | `/api/me/update`           | 🔒     | Update your own account                        | 200     |
+| GET    | `/api/users/{id}`          | 🔒     | Get one user                                   | 200     |
+| GET    | `/api/users`               | 🛡️     | List all users (paged)                         | 200     |
+| DELETE | `/api/users/delete/{id}`   | 🔒     | Delete your own account (admins: any account)  | 204     |
 
 ### Experiences
 
 | Method | Endpoint                | Access | Description                                          | Success |
 |--------|-------------------------|--------|------------------------------------------------------|---------|
-| GET    | `/products`             | 🌐     | Search experiences (all filters optional, paged)     | 200     |
-| GET    | `/getProduct/{id}`      | 🌐     | Get one experience                                   | 200     |
-| POST   | `/createProduct`        | 🏷️     | Create an experience (you become its owner)          | 201     |
-| PUT    | `/updateProduct/{id}`   | 🏷️     | Update your experience                               | 200     |
-| DELETE | `/deleteProduct/{id}`   | 🏷️     | Delete your experience (admins: any experience)      | 204     |
+| GET    | `/api/products`                 | 🌐     | Search experiences (all filters optional, paged)     | 200     |
+| GET    | `/api/products/{id}`            | 🌐     | Get one experience                                   | 200     |
+| POST   | `/api/products/create`          | 🏷️     | Create an experience (you become its owner)          | 201     |
+| PUT    | `/api/products/update/{id}`     | 🏷️     | Update your experience                               | 200     |
+| DELETE | `/api/products/delete/{id}`     | 🏷️     | Delete your experience (admins: any experience)      | 204     |
 
-**Search filters for `GET /products`** (all optional, combine as needed):
+**Search filters for `GET /api/products`** (all optional, combine as needed):
 
 | Parameter               | Finds experiences…                                                   |
 |-------------------------|----------------------------------------------------------------------|
@@ -127,65 +127,65 @@ Logged-in requests send `Authorization: Bearer <token>`. `/me/...` always means 
 | `from`, `to`            | with an open slot starting in this range that still has enough free places (`people`, default 1). Give both or neither. |
 
 ```
-GET /products?name=lambo&maxPrice=300&people=2&from=2030-06-01T00:00&to=2030-06-07T23:59
+GET /api/products?name=lambo&maxPrice=300&people=2&from=2030-06-01T00:00&to=2030-06-07T23:59
 ```
 
 ### Time slots
 
 | Method | Endpoint                               | Access | Description                              | Success |
 |--------|----------------------------------------|--------|------------------------------------------|---------|
-| GET    | `/listTimeSlots?productId=&from=&to=`  | 🌐     | Calendar for a date range (paged)        | 200     |
-| GET    | `/getTimeSlot/{id}`                    | 🌐     | Get one slot                             | 200     |
-| POST   | `/createTimeSlot/{productId}`          | 🏷️     | Open a slot on your experience           | 201     |
-| PUT    | `/updateTimeSlot/{id}`                 | 🏷️     | Change start time or capacity            | 200     |
-| PATCH  | `/cancelTimeSlot/{id}`                 | 🏷️     | Cancel a slot and its bookings           | 200     |
-| DELETE | `/deleteTimeSlot/{id}`                 | 🏷️     | Delete a slot that has no bookings       | 204     |
+| GET    | `/api/slots?productId=&from=&to=`      | 🌐     | Calendar for a date range (paged)        | 200     |
+| GET    | `/api/slots/{id}`                      | 🌐     | Get one slot                             | 200     |
+| POST   | `/api/slots/create/{productId}`        | 🏷️     | Open a slot on your experience           | 201     |
+| PUT    | `/api/slots/update/{id}`               | 🏷️     | Change start time or capacity            | 200     |
+| PATCH  | `/api/slots/cancel/{id}`               | 🏷️     | Cancel a slot and its bookings           | 200     |
+| DELETE | `/api/slots/delete/{id}`               | 🏷️     | Delete a slot that has no bookings       | 204     |
 
 ### Booking
 
 | Method | Endpoint                    | Access | Description                                          | Success |
 |--------|-----------------------------|--------|------------------------------------------------------|---------|
-| POST   | `/me/reserveNow`            | 🔒     | Book one slot now (removes it from your cart if there) | 201   |
-| POST   | `/me/cart`                  | 🔒     | Add a slot to your cart (or change its number of people) | 201 |
-| GET    | `/me/cart`                  | 🔒     | View your cart with prices and total                 | 200     |
-| DELETE | `/me/cart/{timeSlotId}`     | 🔒     | Remove a slot from your cart                         | 204     |
-| DELETE | `/me/cart`                  | 🔒     | Empty your cart                                      | 204     |
-| POST   | `/me/checkout`              | 🔒     | Book everything in your cart, all or nothing         | 201     |
+| POST   | `/api/me/reserve-now`             | 🔒     | Book one slot now (removes it from your cart if there) | 201   |
+| POST   | `/api/me/cart/add`                | 🔒     | Add a slot to your cart (or change its number of people) | 201 |
+| GET    | `/api/me/cart`                    | 🔒     | View your cart with prices and total                 | 200     |
+| DELETE | `/api/me/cart/remove/{timeSlotId}` | 🔒     | Remove a slot from your cart                         | 204     |
+| DELETE | `/api/me/cart/clear`              | 🔒     | Empty your cart                                      | 204     |
+| POST   | `/api/me/checkout`                | 🔒     | Book everything in your cart, all or nothing         | 201     |
 
 ### Reservations
 
 | Method | Endpoint                    | Access | Description                                  | Success |
 |--------|-----------------------------|--------|----------------------------------------------|---------|
-| GET    | `/me/reservations`          | 🔒     | Your bookings, newest first (paged)          | 200     |
-| GET    | `/getReservation/{id}`      | 🔒     | One booking (its guest or the seller)        | 200     |
-| PATCH  | `/cancelReservation/{id}`   | 🔒     | Cancel your booking, freeing the places      | 200     |
+| GET    | `/api/me/reservations`          | 🔒     | Your bookings, newest first (paged)          | 200     |
+| GET    | `/api/reservations/{id}`        | 🔒     | One booking (its guest or the seller)        | 200     |
+| PATCH  | `/api/reservations/cancel/{id}` | 🔒     | Cancel your booking, freeing the places      | 200     |
 
 ### Example: from signup to booking
 
 ```bash
 # a seller signs up, logs in, creates an experience and opens a slot
-curl -X POST localhost:8080/auth/register -H "Content-Type: application/json" \
+curl -X POST localhost:8080/api/auth/register -H "Content-Type: application/json" \
   -d '{"firstName":"Anna","lastName":"Smith","email":"anna@example.com","password":"secret123","age":30,"accountType":"SELLER"}'
 
-SELLER=$(curl -s -X POST localhost:8080/auth/login -H "Content-Type: application/json" \
+SELLER=$(curl -s -X POST localhost:8080/api/auth/login -H "Content-Type: application/json" \
   -d '{"email":"anna@example.com","password":"secret123"}' | sed -E 's/.*"accessToken":"([^"]+)".*/\1/')
 
-curl -X POST localhost:8080/createProduct -H "Authorization: Bearer $SELLER" -H "Content-Type: application/json" \
+curl -X POST localhost:8080/api/products/create -H "Authorization: Bearer $SELLER" -H "Content-Type: application/json" \
   -d '{"name":"Drive a Lamborghini","price":200,"maxPeople":4,"durationMinutes":30}'
 
-curl -X POST localhost:8080/createTimeSlot/1 -H "Authorization: Bearer $SELLER" -H "Content-Type: application/json" \
+curl -X POST localhost:8080/api/slots/create/1 -H "Authorization: Bearer $SELLER" -H "Content-Type: application/json" \
   -d '{"startTime":"2030-06-01T10:00:00","maxPeopleInSlot":2}'      # ends at 10:30 automatically
 
 # a buyer signs up, logs in, browses the calendar and books
-curl -X POST localhost:8080/auth/register -H "Content-Type: application/json" \
+curl -X POST localhost:8080/api/auth/register -H "Content-Type: application/json" \
   -d '{"firstName":"Ivan","lastName":"Petrov","email":"ivan@example.com","password":"secret123","age":25}'
 
-BUYER=$(curl -s -X POST localhost:8080/auth/login -H "Content-Type: application/json" \
+BUYER=$(curl -s -X POST localhost:8080/api/auth/login -H "Content-Type: application/json" \
   -d '{"email":"ivan@example.com","password":"secret123"}' | sed -E 's/.*"accessToken":"([^"]+)".*/\1/')
 
-curl "localhost:8080/listTimeSlots?productId=1&from=2030-06-01T00:00&to=2030-06-01T23:59"
+curl "localhost:8080/api/slots?productId=1&from=2030-06-01T00:00&to=2030-06-01T23:59"
 
-curl -X POST localhost:8080/me/reserveNow -H "Authorization: Bearer $BUYER" -H "Content-Type: application/json" \
+curl -X POST localhost:8080/api/me/reserve-now -H "Authorization: Bearer $BUYER" -H "Content-Type: application/json" \
   -d '{"timeSlotId":1,"numberPeople":2}'
 ```
 
@@ -246,7 +246,7 @@ tables from the migrations each time.
 | OpenAPI spec      | `http://localhost:8080/v3/api-docs`     |
 | H2 console        | `http://localhost:8080/h2-console`      |
 
-**Using Swagger UI:** register with `POST /auth/register`, log in with `POST /auth/login`, copy the
+**Using Swagger UI:** register with `POST /api/auth/register`, log in with `POST /api/auth/login`, copy the
 `accessToken`, click **Authorize** and paste it. Protected endpoints then work from the page.
 
 ### Run with Docker (PostgreSQL)

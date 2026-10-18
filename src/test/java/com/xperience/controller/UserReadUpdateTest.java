@@ -38,7 +38,7 @@ class UserReadUpdateTest {
     void getUserById_returnsUserWithoutPassword() throws Exception {
         User user = saveUser("ivan@example.com");
 
-        mockMvc.perform(get("/get/" + user.getId()).with(loggedInAs(user.getId())))
+        mockMvc.perform(get("/api/users/" + user.getId()).with(loggedInAs(user.getId())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(user.getId()))
                 .andExpect(jsonPath("$.email").value("ivan@example.com"))
@@ -47,7 +47,7 @@ class UserReadUpdateTest {
 
     @Test
     void getUserById_returns404WhenMissing() throws Exception {
-        mockMvc.perform(get("/get/999999").with(loggedInAs(1L)))
+        mockMvc.perform(get("/api/users/999999").with(loggedInAs(1L)))
                 .andExpect(status().isNotFound());
     }
 
@@ -57,7 +57,7 @@ class UserReadUpdateTest {
         saveUser("b@example.com");
         saveUser("c@example.com");
 
-        mockMvc.perform(get("/get").param("page", "0").param("size", "2")
+        mockMvc.perform(get("/api/users").param("page", "0").param("size", "2")
                         .with(jwt().jwt(token -> token.subject(a.getId().toString()))
                                 .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
                 .andExpect(status().isOk())
@@ -83,7 +83,7 @@ class UserReadUpdateTest {
                 }
                 """;
 
-        mockMvc.perform(put("/updateUser")
+        mockMvc.perform(put("/api/me/update")
                         .with(loggedInAs(user.getId()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
@@ -104,7 +104,7 @@ class UserReadUpdateTest {
     void updateUser_canChangeEmailToAFreeOne() throws Exception {
         User user = saveUser("ivan@example.com");
 
-        mockMvc.perform(put("/updateUser")
+        mockMvc.perform(put("/api/me/update")
                         .with(loggedInAs(user.getId()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(userJson("New.Ivan@Example.com")))
@@ -117,7 +117,7 @@ class UserReadUpdateTest {
         User user = saveUser("ivan@example.com");
         saveUser("taken@example.com");
 
-        mockMvc.perform(put("/updateUser")
+        mockMvc.perform(put("/api/me/update")
                         .with(loggedInAs(user.getId()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(userJson("taken@example.com")))
@@ -128,7 +128,7 @@ class UserReadUpdateTest {
     void updateUser_returns401WithoutToken() throws Exception {
         saveUser("ivan@example.com");
 
-        mockMvc.perform(put("/updateUser")
+        mockMvc.perform(put("/api/me/update")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(userJson("ivan@example.com")))
                 .andExpect(status().isUnauthorized());

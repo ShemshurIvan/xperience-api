@@ -72,7 +72,7 @@ class ProductControllerTest {
     void createProduct_returns201AndLinksOwner() throws Exception {
         User owner = saveUser("host@example.com");
 
-        mockMvc.perform(post("/createProduct").with(loggedInAs(owner.getId()))
+        mockMvc.perform(post("/api/products/create").with(loggedInAs(owner.getId()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(VALID_PRODUCT_JSON))
                 .andExpect(status().isCreated())
@@ -91,7 +91,7 @@ class ProductControllerTest {
 
     @Test
     void createProduct_returns404WhenTokenUserNoLongerExists() throws Exception {
-        mockMvc.perform(post("/createProduct").with(loggedInAs(999_999L))
+        mockMvc.perform(post("/api/products/create").with(loggedInAs(999_999L))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(VALID_PRODUCT_JSON))
                 .andExpect(status().isNotFound());
@@ -111,7 +111,7 @@ class ProductControllerTest {
                 }
                 """;
 
-        mockMvc.perform(post("/createProduct").with(loggedInAs(owner.getId()))
+        mockMvc.perform(post("/api/products/create").with(loggedInAs(owner.getId()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(invalidJson))
                 .andExpect(status().isBadRequest())
@@ -136,7 +136,7 @@ class ProductControllerTest {
                 }
                 """;
 
-        mockMvc.perform(put("/updateProduct/" + product.getId()).with(loggedInAs(product.getOwner().getId()))
+        mockMvc.perform(put("/api/products/update/" + product.getId()).with(loggedInAs(product.getOwner().getId()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isOk())
@@ -149,7 +149,7 @@ class ProductControllerTest {
 
     @Test
     void updateProduct_returns404WhenMissing() throws Exception {
-        mockMvc.perform(put("/updateProduct/999999").with(loggedInAs(1L))
+        mockMvc.perform(put("/api/products/update/999999").with(loggedInAs(1L))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(VALID_PRODUCT_JSON))
                 .andExpect(status().isNotFound());
@@ -161,7 +161,7 @@ class ProductControllerTest {
     void getProduct_returnsProduct() throws Exception {
         Product product = saveProduct(saveUser("host@example.com"));
 
-        mockMvc.perform(get("/getProduct/" + product.getId()))
+        mockMvc.perform(get("/api/products/" + product.getId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(product.getId()))
                 .andExpect(jsonPath("$.name").value("Drive a Lamborghini"))
@@ -170,7 +170,7 @@ class ProductControllerTest {
 
     @Test
     void getProduct_returns404WhenMissing() throws Exception {
-        mockMvc.perform(get("/getProduct/999999"))
+        mockMvc.perform(get("/api/products/999999"))
                 .andExpect(status().isNotFound());
     }
 
@@ -181,7 +181,7 @@ class ProductControllerTest {
         saveProduct(owner);
         saveProduct(owner);
 
-        mockMvc.perform(get("/products").param("size", "2"))
+        mockMvc.perform(get("/api/products").param("size", "2"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(2))
                 .andExpect(jsonPath("$.page.totalElements").value(3))
@@ -198,7 +198,7 @@ class ProductControllerTest {
         TimeSlot slot = saveSlot(product, LocalDateTime.now().plusDays(3));
         saveCartItem(guest, slot);
 
-        mockMvc.perform(delete("/deleteProduct/" + product.getId()).with(loggedInAs(product.getOwner().getId())))
+        mockMvc.perform(delete("/api/products/delete/" + product.getId()).with(loggedInAs(product.getOwner().getId())))
                 .andExpect(status().isNoContent());
         productRepository.flush();
 
@@ -214,7 +214,7 @@ class ProductControllerTest {
         TimeSlot slot = saveSlot(product, LocalDateTime.now().plusDays(3));
         saveReservation(slot, saveUser("guest@example.com"), ReservationStatus.CONFIRMED);
 
-        mockMvc.perform(delete("/deleteProduct/" + product.getId()).with(loggedInAs(product.getOwner().getId())))
+        mockMvc.perform(delete("/api/products/delete/" + product.getId()).with(loggedInAs(product.getOwner().getId())))
                 .andExpect(status().isConflict());
 
         assertThat(productRepository.existsById(product.getId())).isTrue();
@@ -226,7 +226,7 @@ class ProductControllerTest {
         TimeSlot slot = saveSlot(product, LocalDateTime.now().plusDays(3));
         saveReservation(slot, saveUser("guest@example.com"), ReservationStatus.CANCELLED);
 
-        mockMvc.perform(delete("/deleteProduct/" + product.getId()).with(loggedInAs(product.getOwner().getId())))
+        mockMvc.perform(delete("/api/products/delete/" + product.getId()).with(loggedInAs(product.getOwner().getId())))
                 .andExpect(status().isNoContent());
         productRepository.flush();
 
@@ -236,7 +236,7 @@ class ProductControllerTest {
 
     @Test
     void deleteProduct_returns404WhenMissing() throws Exception {
-        mockMvc.perform(delete("/deleteProduct/999999").with(loggedInAs(1L)))
+        mockMvc.perform(delete("/api/products/delete/999999").with(loggedInAs(1L)))
                 .andExpect(status().isNotFound());
     }
 
@@ -244,7 +244,7 @@ class ProductControllerTest {
 
     @Test
     void createProduct_returns401WithoutToken() throws Exception {
-        mockMvc.perform(post("/createProduct")
+        mockMvc.perform(post("/api/products/create")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(VALID_PRODUCT_JSON))
                 .andExpect(status().isUnauthorized());
@@ -255,7 +255,7 @@ class ProductControllerTest {
         Product product = saveProduct(saveUser("host@example.com"));
         User stranger = saveUser("stranger@example.com");
 
-        mockMvc.perform(put("/updateProduct/" + product.getId()).with(loggedInAs(stranger.getId()))
+        mockMvc.perform(put("/api/products/update/" + product.getId()).with(loggedInAs(stranger.getId()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(VALID_PRODUCT_JSON))
                 .andExpect(status().isForbidden());
@@ -266,7 +266,7 @@ class ProductControllerTest {
         Product product = saveProduct(saveUser("host@example.com"));
         User stranger = saveUser("stranger@example.com");
 
-        mockMvc.perform(delete("/deleteProduct/" + product.getId()).with(loggedInAs(stranger.getId())))
+        mockMvc.perform(delete("/api/products/delete/" + product.getId()).with(loggedInAs(stranger.getId())))
                 .andExpect(status().isForbidden());
 
         assertThat(productRepository.existsById(product.getId())).isTrue();
@@ -276,8 +276,8 @@ class ProductControllerTest {
     void browsingProducts_worksWithoutToken() throws Exception {
         Product product = saveProduct(saveUser("host@example.com"));
 
-        mockMvc.perform(get("/products")).andExpect(status().isOk());
-        mockMvc.perform(get("/getProduct/" + product.getId())).andExpect(status().isOk());
+        mockMvc.perform(get("/api/products")).andExpect(status().isOk());
+        mockMvc.perform(get("/api/products/" + product.getId())).andExpect(status().isOk());
     }
 
     // a valid SELLER token for this user, as if they had logged in (everyone here acts as a seller)

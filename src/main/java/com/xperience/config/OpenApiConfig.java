@@ -12,7 +12,7 @@ import org.springframework.context.annotation.Configuration;
         info = @Info(
                 title = "Xperience API",
                 version = "1.0",
-                description = "Marketplace for booking experiences. Log in with POST /auth/login, "
+                description = "Marketplace for booking experiences. Log in with POST /api/auth/login, "
                         + "then click Authorize and paste the accessToken."
         ),
         security = @SecurityRequirement(name = "bearerAuth")

@@ -82,7 +82,7 @@ class ReservationControllerTest {
         saveCartItem(guest, first, 2);
         saveCartItem(guest, second, 1);
 
-        mockMvc.perform(post("/me/checkout").with(loggedInAs(guest.getId())))
+        mockMvc.perform(post("/api/me/checkout").with(loggedInAs(guest.getId())))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.length()").value(2))
                 .andExpect(jsonPath("$[0].id").isNumber())
@@ -98,7 +98,7 @@ class ReservationControllerTest {
         TimeSlot slot = saveSlot(LocalDateTime.now().plusDays(3), 4);
         saveCartItem(guest, slot, 3);
 
-        mockMvc.perform(post("/me/checkout").with(loggedInAs(guest.getId())))
+        mockMvc.perform(post("/api/me/checkout").with(loggedInAs(guest.getId())))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$[0].numberPeople").value(3))
                 .andExpect(jsonPath("$[0].pricePaid").value(600.00))
@@ -115,7 +115,7 @@ class ReservationControllerTest {
         TimeSlot slot = saveSlot(LocalDateTime.now().plusDays(3), 2);
         saveCartItem(guest, slot, 2);
 
-        mockMvc.perform(post("/me/checkout").with(loggedInAs(guest.getId())))
+        mockMvc.perform(post("/api/me/checkout").with(loggedInAs(guest.getId())))
                 .andExpect(status().isCreated());
 
         TimeSlot updated = timeSlotRepository.findById(slot.getId()).orElseThrow();
@@ -125,7 +125,7 @@ class ReservationControllerTest {
 
     @Test
     void checkout_returns400WhenCartIsEmpty() throws Exception {
-        mockMvc.perform(post("/me/checkout").with(loggedInAs(guest.getId())))
+        mockMvc.perform(post("/api/me/checkout").with(loggedInAs(guest.getId())))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.detail").value("Cart is empty"));
     }
@@ -136,7 +136,7 @@ class ReservationControllerTest {
         saveCartItem(guest, slot, 3);
         slot.setBookedPeople(2);   // someone else booked in the meantime
 
-        mockMvc.perform(post("/me/checkout").with(loggedInAs(guest.getId())))
+        mockMvc.perform(post("/api/me/checkout").with(loggedInAs(guest.getId())))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("only 2 places left")));
     }
@@ -147,7 +147,7 @@ class ReservationControllerTest {
         saveCartItem(guest, slot, 1);
         slot.setStatus(StatusSlot.CANCELLED);
 
-        mockMvc.perform(post("/me/checkout").with(loggedInAs(guest.getId())))
+        mockMvc.perform(post("/api/me/checkout").with(loggedInAs(guest.getId())))
                 .andExpect(status().isConflict());
     }
 
@@ -156,7 +156,7 @@ class ReservationControllerTest {
         TimeSlot slot = saveSlot(LocalDateTime.now().minusHours(1), 4);
         saveCartItem(guest, slot, 1);
 
-        mockMvc.perform(post("/me/checkout").with(loggedInAs(guest.getId())))
+        mockMvc.perform(post("/api/me/checkout").with(loggedInAs(guest.getId())))
                 .andExpect(status().isConflict());
     }
 
@@ -170,7 +170,7 @@ class ReservationControllerTest {
         saveReservation(later, guest, ReservationStatus.CONFIRMED);
         saveReservation(later, saveUser("other@example.com"), ReservationStatus.CONFIRMED);
 
-        mockMvc.perform(get("/me/reservations").with(loggedInAs(guest.getId())))
+        mockMvc.perform(get("/api/me/reservations").with(loggedInAs(guest.getId())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(2))
                 .andExpect(jsonPath("$.content[0].timeSlotId").value(later.getId()))
@@ -180,7 +180,7 @@ class ReservationControllerTest {
 
     @Test
     void getMyReservations_returns404WhenTokenUserNoLongerExists() throws Exception {
-        mockMvc.perform(get("/me/reservations").with(loggedInAs(999_999L)))
+        mockMvc.perform(get("/api/me/reservations").with(loggedInAs(999_999L)))
                 .andExpect(status().isNotFound());
     }
 
@@ -191,7 +191,7 @@ class ReservationControllerTest {
         TimeSlot slot = saveSlot(LocalDateTime.now().plusDays(3), 4);
         Reservation reservation = saveReservation(slot, guest, ReservationStatus.CONFIRMED);
 
-        mockMvc.perform(get("/getReservation/" + reservation.getId()).with(loggedInAs(guest.getId())))
+        mockMvc.perform(get("/api/reservations/" + reservation.getId()).with(loggedInAs(guest.getId())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(reservation.getId()))
                 .andExpect(jsonPath("$.status").value("CONFIRMED"));
@@ -199,7 +199,7 @@ class ReservationControllerTest {
 
     @Test
     void getReservation_returns404WhenMissing() throws Exception {
-        mockMvc.perform(get("/getReservation/999999").with(loggedInAs(guest.getId())))
+        mockMvc.perform(get("/api/reservations/999999").with(loggedInAs(guest.getId())))
                 .andExpect(status().isNotFound());
     }
 
@@ -212,7 +212,7 @@ class ReservationControllerTest {
         slot.setStatus(StatusSlot.FULL);
         Reservation reservation = saveReservation(slot, guest, ReservationStatus.CONFIRMED);   // 2 people
 
-        mockMvc.perform(patch("/cancelReservation/" + reservation.getId()).with(loggedInAs(guest.getId())))
+        mockMvc.perform(patch("/api/reservations/cancel/" + reservation.getId()).with(loggedInAs(guest.getId())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CANCELLED"));
 
@@ -227,7 +227,7 @@ class ReservationControllerTest {
         slot.setBookedPeople(1);
         Reservation reservation = saveReservation(slot, guest, ReservationStatus.CANCELLED);
 
-        mockMvc.perform(patch("/cancelReservation/" + reservation.getId()).with(loggedInAs(guest.getId())))
+        mockMvc.perform(patch("/api/reservations/cancel/" + reservation.getId()).with(loggedInAs(guest.getId())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CANCELLED"));
 
@@ -239,13 +239,13 @@ class ReservationControllerTest {
         TimeSlot slot = saveSlot(LocalDateTime.now().minusHours(1), 4);
         Reservation reservation = saveReservation(slot, guest, ReservationStatus.CONFIRMED);
 
-        mockMvc.perform(patch("/cancelReservation/" + reservation.getId()).with(loggedInAs(guest.getId())))
+        mockMvc.perform(patch("/api/reservations/cancel/" + reservation.getId()).with(loggedInAs(guest.getId())))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
     void cancelReservation_returns404WhenMissing() throws Exception {
-        mockMvc.perform(patch("/cancelReservation/999999").with(loggedInAs(guest.getId())))
+        mockMvc.perform(patch("/api/reservations/cancel/999999").with(loggedInAs(guest.getId())))
                 .andExpect(status().isNotFound());
     }
 
@@ -253,7 +253,7 @@ class ReservationControllerTest {
 
     @Test
     void checkout_returns401WithoutToken() throws Exception {
-        mockMvc.perform(post("/me/checkout"))
+        mockMvc.perform(post("/api/me/checkout"))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -263,7 +263,7 @@ class ReservationControllerTest {
         Reservation reservation = saveReservation(slot, guest, ReservationStatus.CONFIRMED);
         User stranger = saveUser("stranger@example.com");
 
-        mockMvc.perform(patch("/cancelReservation/" + reservation.getId()).with(loggedInAs(stranger.getId())))
+        mockMvc.perform(patch("/api/reservations/cancel/" + reservation.getId()).with(loggedInAs(stranger.getId())))
                 .andExpect(status().isForbidden());
 
         assertThat(reservationRepository.findById(reservation.getId()).orElseThrow().getStatus())
@@ -275,7 +275,7 @@ class ReservationControllerTest {
         TimeSlot slot = saveSlot(LocalDateTime.now().plusDays(3), 4);
         Reservation reservation = saveReservation(slot, guest, ReservationStatus.CONFIRMED);
 
-        mockMvc.perform(get("/getReservation/" + reservation.getId()).with(loggedInAs(host.getId())))
+        mockMvc.perform(get("/api/reservations/" + reservation.getId()).with(loggedInAs(host.getId())))
                 .andExpect(status().isOk());
     }
 
@@ -285,7 +285,7 @@ class ReservationControllerTest {
         Reservation reservation = saveReservation(slot, guest, ReservationStatus.CONFIRMED);
         User stranger = saveUser("stranger@example.com");
 
-        mockMvc.perform(get("/getReservation/" + reservation.getId()).with(loggedInAs(stranger.getId())))
+        mockMvc.perform(get("/api/reservations/" + reservation.getId()).with(loggedInAs(stranger.getId())))
                 .andExpect(status().isForbidden());
     }
 

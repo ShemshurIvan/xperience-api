@@ -21,8 +21,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 class UserControllerTest {
 
-    // Change this when the endpoint moves to POST /api/users
-    private static final String CREATE_USER_URL = "/createUser";
+    private static final String CREATE_USER_URL = "/api/auth/register";
 
     private static final String VALID_USER_JSON = """
             {

@@ -74,7 +74,7 @@ class CheckoutRollbackTest {
         TimeSlot fullishSlot = saveSlot(product, LocalDateTime.now().plusDays(4), 4, 3);
         saveCartItem(guest, fullishSlot, 3);
 
-        mockMvc.perform(post("/me/checkout").with(loggedInAs(guest.getId())))
+        mockMvc.perform(post("/api/me/checkout").with(loggedInAs(guest.getId())))
                 .andExpect(status().isConflict());
 
         // the first line's places were given back, nothing was booked, and the cart is untouched

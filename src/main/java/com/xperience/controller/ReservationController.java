@@ -19,6 +19,7 @@ import java.util.List;
 
 @Tag(name = "Reservations", description = "Bookings")
 @RestController
+@RequestMapping("/api")
 public class ReservationController {
 
     private final ReservationService reservationService;
@@ -37,14 +38,14 @@ public class ReservationController {
 
     @Operation(summary = "Cancel your booking",
                description = "Only the guest who booked. The places go back to the slot.")
-    @PatchMapping("/cancelReservation/{id}")
+    @PatchMapping("/reservations/cancel/{id}")
     public ReservationResponse cancelReservation(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id){
         return reservationService.cancelReservation(Long.valueOf(jwt.getSubject()), id);
     }
 
     @Operation(summary = "Get one booking",
                description = "Visible to the guest who booked and to the experience's seller.")
-    @GetMapping("/getReservation/{id}")
+    @GetMapping("/reservations/{id}")
     public ReservationResponse getReservationById(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id){
         return reservationService.getReservationById(Long.valueOf(jwt.getSubject()), id);
     }
@@ -58,7 +59,7 @@ public class ReservationController {
     }
     @Operation(summary = "Book one slot now, without the cart",
                description = "Same checks as checkout. If the slot was in your cart, it is removed from there.")
-    @PostMapping("/me/reserveNow")
+    @PostMapping("/me/reserve-now")
     @ResponseStatus(HttpStatus.CREATED)
     public ReservationResponse reserveNow(@AuthenticationPrincipal Jwt jwt,
                                           @Valid @RequestBody ReservationRequest reservationRequest){
