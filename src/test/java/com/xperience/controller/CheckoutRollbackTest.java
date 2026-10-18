@@ -125,6 +125,6 @@ class CheckoutRollbackTest {
         item.setTimeSlot(slot);
         item.setNumberPeople(people);
         cartItemRepository.save(item);
-        Thread.sleep(5);   // distinct addedAt, so the cart order (and checkout order) is predictable
+        Thread.sleep(5);
     }
 }
