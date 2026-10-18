@@ -1,5 +1,7 @@
 package com.xperience.exception;
 
+import com.xperience.exception.conflict.*;
+import com.xperience.exception.notfound.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.InvalidDataAccessApiUsageException;

@@ -1,4 +1,4 @@
-package com.xperience.exception;
+package com.xperience.exception.notfound;
 
 public class CartItemNotFoundException extends RuntimeException {
     public CartItemNotFoundException(Long timeSlotId) {

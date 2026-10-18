@@ -1,4 +1,4 @@
-package com.xperience.exception;
+package com.xperience.exception.notfound;
 
 public class ProductNotFoundException extends RuntimeException {
     public ProductNotFoundException(Long id) {

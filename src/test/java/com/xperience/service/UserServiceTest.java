@@ -3,7 +3,7 @@ package com.xperience.service;
 import com.xperience.dto.user.UserRequest;
 import com.xperience.dto.user.UserResponse;
 import com.xperience.entity.User;
-import com.xperience.exception.EmailAlreadyExistsException;
+import com.xperience.exception.conflict.EmailAlreadyExistsException;
 import com.xperience.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

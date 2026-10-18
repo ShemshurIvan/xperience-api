@@ -1,4 +1,4 @@
-package com.xperience.exception;
+package com.xperience.exception.conflict;
 
 public class SlotOverlapException extends RuntimeException {
     public SlotOverlapException() {
